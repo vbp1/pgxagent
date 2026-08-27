@@ -27,7 +27,7 @@ while [ "$#" -gt 0 ]; do
     --version) VERSION="${2:-}"; shift 2 ;;
     --dir) TARGET_DIR="${2:-}"; shift 2 ;;
     --offline) FLAVOUR="offline"; shift ;;
-    -h|--help) sed -n '3,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '4,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -60,25 +60,42 @@ base="https://github.com/${REPO}/releases/download/v${VERSION}"
 mkdir -p "$TARGET_DIR"
 cd "$TARGET_DIR"
 
+# Everything lands in a scratch directory first and moves into place only once it has been checked, so
+# an interrupted download cannot leave a half-file wearing the name of a complete archive. The scratch
+# directory is a sibling of the target rather than /tmp: the archive is large, and the move has to stay
+# within one filesystem.
+work="$(mktemp -d "${PWD}/.xagent-download-XXXXXX")"
+trap 'rm -rf "$work"' EXIT
+
 echo "Downloading ${archive}"
-curl -fL --progress-bar -o "$archive" "${base}/${archive}"
+curl -fL --progress-bar -o "$work/$archive" "${base}/${archive}" || {
+  echo "Could not download ${archive} from ${base}. Nothing was written." >&2
+  exit 1
+}
 
 # The checksums are published beside the archive rather than inside it — a list packed into the archive
 # it describes cannot vouch for that archive.
 echo "Checking what arrived"
-curl -fsSL -o "$sums" "${base}/${sums}"
-if ! grep -F "$archive" "$sums" | sha256sum -c --status -; then
-  rm -f "$archive"
-  echo "The downloaded archive does not match the published checksum. It was removed; try again." >&2
+curl -fsSL -o "$work/$sums" "${base}/${sums}" || {
+  echo "Release v${VERSION} publishes no ${sums}, so the download cannot be checked. Nothing was written." >&2
+  echo "Report this, or fetch the archive from https://github.com/${REPO}/releases/tag/v${VERSION} by hand." >&2
+  exit 1
+}
+
+if ! (cd "$work" && grep -F "$archive" "$sums" | sha256sum -c --status -); then
+  echo "The downloaded archive does not match the published checksum. Nothing was written; try again." >&2
   exit 1
 fi
+
+mv "$work/$archive" "$archive"
+mv "$work/$sums" "$sums"
 
 echo "Unpacking"
 unzip -q -o "$archive"
 
 echo ""
 echo "=== Ready ==="
-echo "  cd $(pwd)/xagent-${VERSION}"
+printf '  cd %q\n' "$(pwd)/xagent-${VERSION}"
 echo "  ./xagent-installer verify"
 echo "  sudo ./xagent-installer install --path /opt/xagent --up"
 echo ""
