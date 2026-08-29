@@ -1,12 +1,13 @@
-# XAgent documentation — English
+# XAgent documentation - English
 
-The guides in this folder are being translated. Until a page appears here, read the Russian original
-in [`../ru`](../ru):
+The same guides in Russian are in [`../ru`](../ru).
 
-| Page                                                                                     | What it covers                                        |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [`ru/quick-start.md`](../ru/quick-start.md)                                               | First run: connect a database and ask the first question |
-| [`ru/install-guide.md`](../ru/install-guide.md)                                           | Requirements, both archives, install, update, exit codes |
-| [`ru/targets.md`](../ru/targets.md)                                                       | Adding the databases XAgent watches                   |
-| [`ru/webhooks.md`](../ru/webhooks.md)                                                     | Sending alerts to an external system                  |
-| [`ru/example-playbook-proactive-health-check.md`](../ru/example-playbook-proactive-health-check.md) | A worked playbook, as an example to copy    |
+| Page                                                                                       | What it covers                                            |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| [`quick-start.md`](quick-start.md)                                                         | First run: connect a database and ask the first question    |
+| [`changelog.md`](changelog.md)                                                             | What changed in this release                                |
+| [`known-issues.md`](known-issues.md)                                                       | Known issues of this release and how to work around them    |
+| [`install-guide.md`](install-guide.md)                                                     | Requirements, both archives, install, update, exit codes    |
+| [`targets.md`](targets.md)                                                                 | Adding the databases XAgent watches                         |
+| [`webhooks.md`](webhooks.md)                                                               | Sending alerts to an external system                        |
+| [`example-playbook-proactive-health-check.md`](example-playbook-proactive-health-check.md) | A worked playbook, as an example to copy                    |

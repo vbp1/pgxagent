@@ -1,0 +1,97 @@
+# Known issues
+
+This page collects what you can run into in the current version of XAgent, and what to do about it. The list grows as issues are found and is updated with every release.
+
+## Installation and configuration
+
+### The `OLLAMA_HEADERS` variable must not be set
+
+If you set `OLLAMA_HEADERS` in `.env`, the service does not start: the value is read as an object, while the environment delivers a string.
+
+**What to do:** leave this variable unset. Extra HTTP headers for Ollama cannot be configured in the current version; if Ollama requires an authorisation header, put a reverse proxy in front of it that adds the header.
+
+### `MAX_PARALLEL_RUNS=0` silently turns monitoring off
+
+The value `0` is accepted without complaint, and after that no schedule ever runs. The log shows only the line `Deferring N jobs until next wake up`, which does not name the reason.
+
+**What to do:** set the value to at least 1. If monitoring stopped running, check this variable first.
+
+### The `TZ` variable in `.env` shifts when schedules fire
+
+The next run time is stored in UTC, but before it is compared with the current time the offset of the container's time zone is added to it. By default the container runs on UTC, the offset is zero, and everything lines up. If you set `TZ` in `.env`, schedules start firing earlier or later than the time you set, by exactly that offset. The next-run column still shows the time you set: it is the firing that drifts.
+
+**What to do:** do not set `TZ` in `.env`. The time zone of the host itself has no effect on schedules, so there is no need to change it.
+
+## Accounts and sign-in
+
+### A non-Latin user name makes the account unusable
+
+Sign-in succeeds, but every page after it reports that the server is unavailable: the person's name is passed in an internal HTTP header, which only allows Latin letters and digits.
+
+**What to do:** when you create an account in the **Admin** section, fill the display name field in Latin letters or leave it empty - the field is optional. The name of an existing account cannot be changed from the interface. If the name comes from an external identity provider (OpenID), fix it on the provider's side.
+
+### A service failure during sign-in looks like a wrong password
+
+If the core does not answer, or answers with an error, the sign-in page says "invalid login or password" - that is, it blames the credentials instead of the real cause.
+
+**What to do:** if sign-in suddenly fails with a password you know is right, look at `docker compose logs xagent` before you change the password.
+
+## Scheduled monitoring
+
+### Turning a schedule off while it is running does not stick
+
+If you turn a check off while it is running, the "enabled" flag is written back at the end of the run from the state the run saw when it started. A check you turned off keeps running on schedule.
+
+**What to do:** turn a schedule off while no run is in progress, and check the switch again after the current run finishes.
+
+### Turning a running check off and straight back on starts a second one
+
+Turning it off clears the "running" mark, turning it on sets a new due time, and at that due time the scheduler picks the same schedule up a second time while the first check is still running. That gives you two calls to the model, two series of database queries and two reports about the same thing.
+
+**What to do:** between turning it off and back on, wait for the running check to finish.
+
+### A long run is restarted on top of the running one
+
+A run that takes longer than `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` (900 seconds by default) is considered stuck and started again, even if it is alive and working.
+
+**What to do:** for heavy playbooks, raise `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` to the time they actually need.
+
+### A time range that cannot be parsed is replaced with the default
+
+If a schedule is created through the API, the analysis time range is not validated: a value in a format that cannot be parsed is silently replaced with the playbook default (usually `1h`), and the report says nothing about the substitution. In the interface the **Time Range** field is a dropdown, so an unparseable value cannot be entered by hand.
+
+**What to do:** when you create a schedule through the API, write the range the same way the interface lists it (`15m`, `1h`, `6h`, `24h`, `7d`, `30d`), or as a full date such as `2026-08-27T10:00:00Z`. If a check covered a different period than the one you set, check how the range is spelled.
+
+## Webhooks
+
+### A webhook cannot be created with an empty "Additional Instructions" field
+
+On save you get a red line saying `additionalInstructions: Expected string, received null`, not attached to any field, and the webhook is not created.
+
+**What to do:** put any text in the **Additional Instructions** field (for example, `-`).
+
+### The value 0 in the "Max Steps" field cannot be saved
+
+The field accepts 0 and is labelled as the way to stop the investigation from moving on to other playbooks, but on save the setting is rejected: allowed values are 1 to 50.
+
+**What to do:** leave it at 1 - the investigation runs the chosen playbook and does not call others.
+
+### With several databases on one host name, the alert goes to the oldest one
+
+Matching is done by host name only, ignoring the port and the rest of the alert labels. If one machine hosts several watched databases, the investigation runs on the one that was added first.
+
+**What to do:** for machines with several databases, give the nodes different **Machine Name** values and send that same value in the alert label.
+
+## Interface
+
+### When the connection drops, the menu counters silently show stale numbers
+
+The number badges next to the **Alerts** item keep showing the last value they read, with nothing to say the update failed. The **Alerts** page itself does warn about it with a red line; the menu does not.
+
+**What to do:** if the numbers look suspiciously frozen, open the **Alerts** page and see whether it warns about a failed update.
+
+### Stopping an answer is drawn as a failure
+
+If you click **Stop** while the agent is answering, a red error bar appears under the answer even though nothing broke.
+
+**What to do:** the bar after your own **Stop** can be ignored: the part of the answer that was already saved stays in the chat.
