@@ -181,16 +181,7 @@ An alert is matched to a target by the node's **saved** machine name (the **Mach
 
 Access to a target comes from three things: the member's role in the project, the visibility of the target itself, and individual grants.
 
-**Project member roles** (the project **Settings** section):
-
-| Role         | What they can do                                                                                                                                        |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **owner**    | Everything, unconditionally. Deletes the project and transfers ownership                                                                                   |
-| **manager**  | Runs the project and its members: targets, playbooks, schedules, webhooks, MCP servers, settings. Queries against data and approving changing commands are not part of this role |
-| **operator** | Works with the databases: chats, playbooks, schedules, webhooks, queries against data, approving changing commands. No project settings and no member management |
-| **viewer**   | Read-only: sees targets, dashboards and shared chats. Runs nothing                                                                                          |
-
-A new member gets the **viewer** role until someone assigns another one. The role sets the default set of actions; for a specific member it is narrowed by exceptions - including how much of the project's shared targets they reach (all, selected, only their own, none).
+**Project member roles** (the project **Settings** section) are Owner, Manager, Operator and Viewer. A new member gets the Viewer role until someone assigns another one. The role sets the default set of actions; for a specific member it is narrowed by exceptions - including how much of the project's shared targets they reach. The full "what each role can and cannot do" table, the chat-visibility rules and how tools are granted are in [rbac.md](rbac.md).
 
 **Target visibility** is `public` (visible to every project member) or `private` (visible to the owner and to people granted it by name, on the **Access** tab). Only a **public** target can be the default target, so that the default value works for every member.
 

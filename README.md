@@ -18,12 +18,10 @@ This repository holds the installer, the release archives, and the documentation
 
 - Monitoring on a schedule: a playbook runs against a database, and what it finds becomes an incident
   record - opened once, confirmed while it lasts, closed with a stated reason
-- Chat with the agent about a specific database, with several people from the project in one
-  conversation and charts drawn where they are discussed. The answer is produced on the server, so a
-  closed page or a dropped connection does not lose it
-- Logs and metrics analysis through sub-agents that investigate on their own. The agent reads the
-  VictoriaLogs and VictoriaMetrics you already run and puts no collector of its own on the database
-  servers
+- Chat with the agent about a specific database, with the answer produced on the server and kept if the
+  page is closed or the connection drops
+- Logs and metrics analysis (VictoriaLogs, VictoriaMetrics) through sub-agents that investigate on their
+  own
 - Investigation triggered by an alert from a monitoring system (AlertManager, Prometheus)
 - 17 built-in diagnostic playbooks, plus playbooks you write yourself
 - Commands on the server with human approval: the agent proposes, shows the risk, and a person clicks.
@@ -34,12 +32,8 @@ This repository holds the installer, the release archives, and the documentation
   settings that differ between nodes
 - Multi-LLM support: a cloud API such as DeepSeek, any OpenAI-compatible server, LiteLLM, or a local
   model through Ollama or vLLM
-- Health of every watched database in one list: healthy, degraded, unreachable, or refusing the
-  connection, redrawn as each check finishes
-- One place for the history of a database: past conversations, monitoring reports, incident records and
-  the agent's notes, searchable by people and by the agent itself
-- Four roles (owner, manager, operator, viewer), access granted per database, and a project log of who
-  changed what
+- Team access: four built-in roles, per-database grants, chats that stay private when you say so, and a
+  project activity log
 - Slack notifications when an incident record opens and closes
 - On-premise deployment, including a closed network with no internet access
 - Experimental SQL mode: natural language queries to your data
@@ -103,6 +97,7 @@ The guides are in [`docs/`](./docs), in English ([`docs/en`](./docs/en)) and in 
 | [Quick start](./docs/en/quick-start.md)                                  | First run: connect a database, ask the first question    |
 | [Installation](./docs/en/install-guide.md)                               | Requirements, both archives, install, update, exit codes |
 | [Targets](./docs/en/targets.md)                                          | Adding the databases XAgent watches                      |
+| [Roles and access](./docs/en/rbac.md)                                    | Roles, database access, chat visibility and tool grants  |
 | [Webhooks](./docs/en/webhooks.md)                                        | Sending alerts to an external system                     |
 | [Example playbook](./docs/en/example-playbook-proactive-health-check.md) | A worked playbook, as something to copy from             |
 | [What's new](./docs/en/changelog.md)                                     | What changed in this release                             |

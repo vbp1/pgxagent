@@ -301,6 +301,7 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | `SQL_MODE`                          | Unlocks the **Enable SQL Mode** switch in the target form; without it the switch stays greyed out    | `false` |
 | `MAX_PARALLEL_RUNS`                 | The maximum number of parallel schedules. Do not set `0` - monitoring turns off silently             | `20`    |
 | `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` | The schedule timeout (seconds)                                                                        | `900`   |
+| `CHAT_TURN_IDLE_TIMEOUT_SECS`       | How long a chat turn may produce nothing before it is taken as stopped (seconds). Counted between signs of life; waiting for someone to approve a command does not count | `900`   |
 | `LLM_MAX_RETRIES`                   | The maximum number of LLM call retries                                                                | `3`     |
 | `CORE_PORT`                         | The core binary port                                                                                  | `3001`  |
 | `SYSTEM_PROMPT_ADD`                 | An addition to the system prompt                                                                      | -       |
@@ -342,6 +343,8 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | Variable                    | What it is                                                                | Default                                              |
 | --------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
 | `WEBHOOK_MAX_PARALLEL_RUNS` | How many webhook investigations run at once                                 | `3`                                                  |
+| `ALERT_RETENTION_DAYS`      | How many days a **closed** incident record is kept (1-3650); open records are never removed. A value outside that range stops the service | `90`                    |
+| `MAX_CATCHUP_BYTES`         | The weight one connection may be handed when it joins an answer already being written (at least 8192). A value below that stops the service | `5242880`            |
 | `WIDGETS_DISABLED`          | `true` removes the graphical widgets from interactive chats                 | `false`                                              |
 | `PG_DOCS_ARTIFACT_PATH`     | The path to the PostgreSQL documentation pack inside the container          | `/app/docs/postgresql-docs.json`                     |
 | `MCP_SERVERS_DIR`           | The directory holding the MCP servers inside the container                  | `/app/mcp-servers` (set in `docker-compose.yaml`)    |

@@ -24,12 +24,6 @@ The next run time is stored in UTC, but before it is compared with the current t
 
 ## Accounts and sign-in
 
-### A non-Latin user name makes the account unusable
-
-Sign-in succeeds, but every page after it reports that the server is unavailable: the person's name is passed in an internal HTTP header, which only allows Latin letters and digits.
-
-**What to do:** when you create an account in the **Admin** section, fill the display name field in Latin letters or leave it empty - the field is optional. The name of an existing account cannot be changed from the interface. If the name comes from an external identity provider (OpenID), fix it on the provider's side.
-
 ### A service failure during sign-in looks like a wrong password
 
 If the core does not answer, or answers with an error, the sign-in page says "invalid login or password" - that is, it blames the credentials instead of the real cause.
@@ -63,12 +57,6 @@ If a schedule is created through the API, the analysis time range is not validat
 **What to do:** when you create a schedule through the API, write the range the same way the interface lists it (`15m`, `1h`, `6h`, `24h`, `7d`, `30d`), or as a full date such as `2026-08-27T10:00:00Z`. If a check covered a different period than the one you set, check how the range is spelled.
 
 ## Webhooks
-
-### A webhook cannot be created with an empty "Additional Instructions" field
-
-On save you get a red line saying `additionalInstructions: Expected string, received null`, not attached to any field, and the webhook is not created.
-
-**What to do:** put any text in the **Additional Instructions** field (for example, `-`).
 
 ### The value 0 in the "Max Steps" field cannot be saved
 

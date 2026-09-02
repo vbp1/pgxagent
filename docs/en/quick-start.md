@@ -184,7 +184,7 @@ Once everything is set up, make sure it works:
 - **Incident records and Slack notifications** - the **Alerts** section, and messages to the channel when a record is opened and closed.
 - **Commands with human approval** - when the switch is explicitly turned on (see section 7 above).
 - **Working together in a chat** - several people from the project can take part in one chat; messages are handled one after another, and you can see who is in the chat right now.
-- **The answer is produced on the server** - generation is not tied to the tab: you can close or reload the page and come back to the full answer. The same goes for a dropped connection - on reconnect the stream is caught up from history.
+- **The answer is produced on the server** - generation is not tied to the tab: you can close or reload the page and come back to the full answer. An answer being written right now shows on every open of the chat, from another device too. A dropped connection is restored, and what was missed is caught up from history.
 
 ## Limits
 

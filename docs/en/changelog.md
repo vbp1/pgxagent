@@ -6,10 +6,11 @@ In this version the agent runs commands on the databases it watches with a perso
 
 ### What to watch for when upgrading
 
-- **Member roles.** The old pair "owner / member" is replaced by four roles: owner, manager, operator, viewer. Everyone who was a member becomes an operator - day-to-day work does not change. Project settings (models, integrations, notifications, cloud keys) are now open to managers and owners. A person added without an explicit role becomes a viewer.
+- **Member roles.** The old pair "owner / member" is replaced by four roles: owner, manager, operator, viewer. Everyone who was a member becomes an operator - day-to-day work does not change. Project settings (models, integrations, notifications, cloud keys) are now open to managers and owners. A person added without an explicit role becomes a viewer. Metrics and logs come with the role - to owners, managers and operators - while connected tools are still granted by name. Roles and access are described in full in [rbac.md](rbac.md).
 - **Per-person access to individual targets** starts from a clean slate: if you had opened a specific database to specific people, grant that access again on the **Access** tab of the target.
-- **Chats are created as shared.** A new chat used to be visible only to its author. It is now visible to the whole team by default, and you can hide it with a switch when you create it. Chats already saved as private stay private. Alert investigations and scheduled checks are always visible to the team.
+- **Chats are created as shared.** A new chat used to be visible only to its author. It is now visible to the whole team by default, and you can hide it with a switch when you create it. Chats already saved as private stay private. Alert investigations and scheduled checks are always visible to the team. A chat is visible to whoever can see its database: a conversation about a private target is not shown to people that target was never opened to.
 - **The installer archive is now two archives** - one with images and one without. Releases and the install script live in a public repository: the latest version can be downloaded and unpacked with a single command. Details in [install-guide.md](install-guide.md).
+- **Custom check scenarios.** The search over a target's past is split into three separate tools - over conversations, over scheduled-check reports, and over incident records. A hand-written scenario that names the former single search by name has to be rewritten to the new names: `searchChatHistory`, `searchMonitoringRuns` and `searchAlertRecords`.
 - The rough edges of this version are collected in [known-issues.md](known-issues.md).
 
 ### Commands on the server
@@ -26,12 +27,14 @@ In this version the agent runs commands on the databases it watches with a perso
 - Every record has a timeline of events, comments from people, and a link to the investigation.
 - There is a new **Alerts** section: tiles by severity, grouping by target, and a separate view of closed records. In the side menu the counter is broken down by severity, and clicking it opens the list already narrowed to that level.
 - Slack messages are sent once per record - when it opens, when its severity rises, and when it closes. The model's report arrives in the channel as readable text with a link to the full investigation.
+- A closed record is kept for a bounded time - 90 days by default, set by `ALERT_RETENTION_DAYS`. An open record is never deleted, at any age.
 
 ### Investigating signals from monitoring systems
 
 - Investigations are now **queued**: receiving a signal only records the work and answers immediately, while worker processes run it under a shared concurrency limit. Restarting the service no longer loses an investigation that has started - it continues in the same chat.
 - **A flapping problem gets one investigation, not one per firing.** A problem that comes back within the flap window (5 minutes by default, configurable in the receiver form) is attached to the existing record.
 - If an investigation never started, the reason is saved and visible in the list - instead of a permanent "pending".
+- The **Keep History** setting on a receiver bounds how many investigations are kept. Only those whose work is over and whose trouble is settled for good count as history: an unfinished investigation, and a record that can still come back, stay where they are. A monitor that sends no all-clears keeps its records open, so the limit never bounds it.
 
 ### Access rights and the activity log
 
@@ -40,6 +43,7 @@ In this version the agent runs commands on the databases it watches with a perso
 - Every target has its own **Access** tab: publish it to the whole project or open it to named people.
 - **A project activity log** for owners and managers: who changed what, in plain sentences, with the original entry available on expand.
 - Scheduled checks and alert investigations re-check the rights of whoever created them: work created by a person who has been demoted to viewer no longer runs.
+- **An account's display name can be corrected.** The **Admin** section, open to the installation admin, now edits the name of an existing account. A name in any script works: a non-Latin name no longer makes the interface unusable. An account that signs in through an external identity provider takes its name from there at every sign-in, so the field is closed and the reason is stated in the dialog.
 
 ### Watching target health
 
@@ -47,6 +51,7 @@ In this version the agent runs commands on the databases it watches with a perso
 - Row status updates **live**: a row is redrawn as soon as its own check finishes, and a stuck check does not hold up the rest. A check that takes too long turns yellow.
 - A green dot means "we reached the database": status is written from the agent's ordinary work, without extra probes.
 - On the project list every project now has its own database health indicator with the number of problem targets.
+- A target whose host name cannot be resolved to an address reads as **Unreachable** - such a check used to end with no verdict at all.
 
 ### Clusters
 
@@ -62,6 +67,13 @@ In this version the agent runs commands on the databases it watches with a perso
 - **Search over saved monitoring reports**: the agent finds what it needs in past checks and opens the match in full.
 - **Agent notes** are stored one per note, with an author and an edit time, are searched by text, and changes to shared notes go into the project log. Personal notes are closed to automated runs.
 - In the chat history you can open a matched message and expand which tools it called.
+- **What is open on a target right now**: the agent lists the incident records that are still open, with a tally per severity, and reads them page by page - no need to guess the words to search for. It sees the investigation behind a record and can search inside one chosen conversation.
+
+### Settings recommendations
+
+- Every proposed value names its source: whether the tool computed it from the machine it measured, or the agent composed it from a server reading, which it names.
+- Machine facts are never inferred. When the amount of memory could not be read, the values that depend on it are not given, and the missing reading is named.
+- The advice in the built-in playbooks has been checked against a live server: whether a setting needs a restart is taken from the server itself, and query-plan analysis says when a plan was built from generic parameters and why a plan could not be obtained.
 
 ### Chatting with the agent
 
@@ -73,6 +85,8 @@ In this version the agent runs commands on the databases it watches with a perso
 - A refusal from the model provider is shown in its own words, not as a retelling.
 - Charts and diagrams are drawn when a person holds the turn, including inside an alert investigation.
 - A conversation with a reasoning model no longer goes quiet after a background command.
+- **An answer being written right now shows on every open of the chat** - from another device, in another tab, and after a page reload; an answer that started while the page was closed is caught up in full.
+- A turn ends on silence, not on elapsed time: while an answer keeps writing, or while a question stands in front of a person, the turn is not cut. The silence window is `CHAT_TURN_IDLE_TIMEOUT_SECS`, 15 minutes by default.
 
 ### Metric and log sources
 
