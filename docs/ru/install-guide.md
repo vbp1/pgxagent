@@ -15,7 +15,7 @@
 
 **Варианты подключения LLM**:
 
-- **Облачный API** - требуется доступ в интернет к API-провайдеру (DeepSeek, Polza.AI, BotHub, HuggingFace и др.). Подробнее в разделе [Подготовка LLM-провайдера](#подготовка-llm-провайдера).
+- **Облачный API** - требуется доступ в интернет к API-провайдеру (DeepSeek, Polza.AI, BotHub и др.). Подробнее в разделе [Подготовка LLM-провайдера](#подготовка-llm-провайдера).
 - **Локальный LLM** - доступ в интернет не требуется. Используйте Ollama, vLLM или любой OpenAI-совместимый сервер в локальной сети.
 
 > XAgent не устанавливает Docker. Если Docker не установлен, поставьте его по инструкции вашего дистрибутива Linux.
@@ -24,27 +24,35 @@
 
 Агенту нужна LLM. Подготовьте один из вариантов **до начала установки**:
 
-### Рекомендованный вариант: DeepSeek Chat
+### Рекомендованный вариант: DeepSeek V4 Pro
 
 - API: `https://api.deepseek.com`
-- Модель: `OPENAI_MODEL=deepseek-chat` (под этим именем API отдаёт текущую версию v3.2)
+- Модель: `OPENAI_MODEL=deepseek-v4-pro`
 - Тип провайдера в инсталляторе: **OpenAI-compatible** (`OPENAI_API_TYPE=compatible`)
 
-### Допустимые провайдеры
+### Проверенные модели
 
-| Провайдер   | Base URL                               | Модели                                 | `OPENAI_API_TYPE` |
-| ----------- | -------------------------------------- | -------------------------------------- | ----------------- |
-| DeepSeek    | `https://api.deepseek.com`             | `deepseek-chat`                        | `compatible`      |
-| Polza.AI    | `https://api.polza.ai/v1`              | `deepseek/deepseek-v3.2`, `z-ai/glm-5` | `openrouter`      |
-| BotHub      | `https://bothub.chat/api/v2/openai/v1` | `deepseek/deepseek-v3.2`               | `openrouter`      |
-| HuggingFace | `https://router.huggingface.co/v1`     | `zai-org/GLM-4.7`, `zai-org/GLM-5`     | `compatible`      |
-| vsellm      | `https://api.vsellm.ru/v1`             | `z-ai/glm-4.7`, `qwen/qwen3.5-plus`    | `compatible`      |
+| Модель            | Когда брать                                                                | Имя у вендора       |
+| ----------------- | -------------------------------------------------------------------------- | ------------------- |
+| DeepSeek V4 Pro   | Основной выбор                                                             | `deepseek-v4-pro`   |
+| DeepSeek V4 Flash | Быстрее и дешевле V4 Pro                                                   | `deepseek-v4-flash` |
+| GLM-5.3           | Альтернатива DeepSeek                                                      | `glm-5.3`           |
+| GLM-5.2           | Предыдущий выпуск GLM                                                      | `glm-5.2`           |
+| Qwen3.8 Max       | Альтернатива DeepSeek                                                      | `qwen3.8-max`       |
+| gpt-oss-120b      | С потерей качества; помещается на одну A100/H100 - годится для локального запуска | `gpt-oss-120b` |
 
-> **`OPENAI_API_TYPE`**: `compatible` - стандартный OpenAI-совместимый API. `openrouter` - OpenRouter-совместимые прокси (Polza.AI, BotHub и др.); поддерживают суффикс `:provider` в имени модели для выбора upstream-провайдера (например `OPENAI_MODEL=deepseek-v3.2:DeepSeek` → отправляется как `provider.only` в теле запроса). Если `OPENAI_BASE_URL` задан, а `OPENAI_API_TYPE` - нет, по умолчанию используется `compatible`.
+Последняя колонка - имя модели у её собственного вендора. На сборных площадках к нему добавляется префикс: точную форму см. в колонке «Форма имени модели».
 
-> **Менее стабильные**: vsellm (возможны перебои).
+### Допустимые площадки
 
-> **С потерей качества**: модель `openai/gpt-oss-120b` (доступна на всех провайдерах и локально, помещается на одну A100/H100).
+| Площадка | Base URL                               | `OPENAI_API_TYPE` | Форма имени модели                                                              |
+| -------- | -------------------------------------- | ----------------- | -------------------------------------------------------------------------------- |
+| DeepSeek | `https://api.deepseek.com`             | `compatible`      | Только модели DeepSeek, имя как у вендора: `deepseek-v4-pro`                    |
+| Polza.AI | `https://api.polza.ai/v1`              | `openrouter`      | С префиксом вендора: `deepseek/deepseek-v4-pro`, `z-ai/glm-5.3`, `qwen/qwen3.8-max` |
+| BotHub   | `https://bothub.chat/api/v2/openai/v1` | `openrouter`      | Без префикса: `deepseek-v4-pro`, `glm-5.3`, `qwen3.8-max`                        |
+| vsellm   | `https://api.vsellm.ru/v1`             | `compatible`      | С префиксом вендора: `deepseek/deepseek-v4-pro`, `z-ai/glm-5.3`, `qwen/qwen3.8-max` |
+
+> **`OPENAI_API_TYPE`**: `compatible` - стандартный OpenAI-совместимый API. `openrouter` - OpenRouter-совместимые прокси (Polza.AI, BotHub и др.); поддерживают суффикс `:provider` в имени модели для выбора upstream-провайдера (например `OPENAI_MODEL=deepseek-v4-pro:DeepSeek` → отправляется как `provider.only` в теле запроса). Если `OPENAI_BASE_URL` задан, а `OPENAI_API_TYPE` - нет, по умолчанию используется `compatible`.
 
 ### Другие провайдеры
 

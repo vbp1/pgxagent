@@ -15,7 +15,7 @@
 
 **Ways to connect an LLM**:
 
-- **A cloud API** - needs internet access to the API provider (DeepSeek, Polza.AI, BotHub, HuggingFace and others). More in [Preparing an LLM provider](#preparing-an-llm-provider).
+- **A cloud API** - needs internet access to the API provider (DeepSeek, OpenRouter, HuggingFace and others). More in [Preparing an LLM provider](#preparing-an-llm-provider).
 - **A local LLM** - no internet access needed. Use Ollama, vLLM or any OpenAI-compatible server on your local network.
 
 > XAgent does not install Docker. If Docker is missing, install it following the instructions for your Linux distribution.
@@ -24,27 +24,36 @@
 
 The agent needs an LLM. Prepare one of the options **before you start the installation**:
 
-### Recommended: DeepSeek Chat
+### Recommended: DeepSeek V4 Pro
 
 - API: `https://api.deepseek.com`
-- Model: `OPENAI_MODEL=deepseek-chat` (under this name the API serves the current v3.2)
+- Model: `OPENAI_MODEL=deepseek-v4-pro`
 - Provider type in the installer: **OpenAI-compatible** (`OPENAI_API_TYPE=compatible`)
 
-### Supported providers
+### Models we tested
 
-| Provider    | Base URL                               | Models                                 | `OPENAI_API_TYPE` |
-| ----------- | -------------------------------------- | -------------------------------------- | ----------------- |
-| DeepSeek    | `https://api.deepseek.com`             | `deepseek-chat`                        | `compatible`      |
-| Polza.AI    | `https://api.polza.ai/v1`              | `deepseek/deepseek-v3.2`, `z-ai/glm-5` | `openrouter`      |
-| BotHub      | `https://bothub.chat/api/v2/openai/v1` | `deepseek/deepseek-v3.2`               | `openrouter`      |
-| HuggingFace | `https://router.huggingface.co/v1`     | `zai-org/GLM-4.7`, `zai-org/GLM-5`     | `compatible`      |
-| vsellm      | `https://api.vsellm.ru/v1`             | `z-ai/glm-4.7`, `qwen/qwen3.5-plus`    | `compatible`      |
+| Model             | When to pick it                                                              | Vendor name         |
+| ----------------- | ----------------------------------------------------------------------------- | ------------------- |
+| DeepSeek V4 Pro   | The default choice                                                            | `deepseek-v4-pro`   |
+| DeepSeek V4 Flash | Faster and cheaper than V4 Pro                                                | `deepseek-v4-flash` |
+| GLM-5.3           | An alternative to DeepSeek                                                    | `glm-5.3`           |
+| GLM-5.2           | The previous GLM release                                                      | `glm-5.2`           |
+| Qwen3.8 Max       | An alternative to DeepSeek                                                    | `qwen3.8-max`       |
+| gpt-oss-120b      | With a loss of quality; fits on a single A100/H100, so it also runs locally   | `gpt-oss-120b`      |
 
-> **`OPENAI_API_TYPE`**: `compatible` is the standard OpenAI-compatible API. `openrouter` covers OpenRouter-compatible proxies (Polza.AI, BotHub and others); they support the `:provider` suffix in the model name to pick the upstream provider (for example `OPENAI_MODEL=deepseek-v3.2:DeepSeek` is sent as `provider.only` in the request body). If `OPENAI_BASE_URL` is set and `OPENAI_API_TYPE` is not, `compatible` is used.
+The last column is the name the model's own vendor uses. Aggregators put a prefix in front of it - the exact shape is in the "Model name shape" column.
 
-> **Less stable**: vsellm (outages happen).
+### Supported platforms
 
-> **With a loss of quality**: the `openai/gpt-oss-120b` model (available at every provider and locally, fits on a single A100/H100).
+| Platform    | Base URL                           | `OPENAI_API_TYPE` | Model name shape                                                                          |
+| ----------- | ---------------------------------- | ----------------- | ------------------------------------------------------------------------------------------- |
+| DeepSeek    | `https://api.deepseek.com`         | `compatible`      | DeepSeek models only, the vendor name as is: `deepseek-v4-pro`                             |
+| OpenRouter  | `https://openrouter.ai/api/v1`     | `openrouter`      | Vendor prefix: `deepseek/deepseek-v4-pro`, `z-ai/glm-5.3`, `qwen/qwen3.8-max`               |
+| HuggingFace | `https://router.huggingface.co/v1` | `compatible`      | Repository id: `deepseek-ai/DeepSeek-V4-Pro`, `zai-org/GLM-5.3`, `Qwen/Qwen3.8-2.4T-A95B`  |
+
+> **`OPENAI_API_TYPE`**: `compatible` is the standard OpenAI-compatible API. `openrouter` covers OpenRouter and OpenRouter-compatible proxies; they support the `:provider` suffix in the model name to pick the upstream provider (for example `OPENAI_MODEL=deepseek-v4-pro:DeepSeek` is sent as `provider.only` in the request body). If `OPENAI_BASE_URL` is set and `OPENAI_API_TYPE` is not, `compatible` is used.
+
+> **HuggingFace routing**: on the HuggingFace router the `:provider` suffix is part of the model name itself, not OpenRouter routing - write `zai-org/GLM-5.3:novita` and keep `OPENAI_API_TYPE=compatible`.
 
 ### Other providers
 
