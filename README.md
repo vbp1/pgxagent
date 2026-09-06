@@ -16,6 +16,8 @@ This repository holds the installer, the release archives, and the documentation
 
 XAgent is free to use, in production too: see [Licensing](#licensing).
 
+![Alerts: one record per problem, not per run](docs/images/alerts-dark.png)
+
 **Key features:**
 
 - Monitoring on a schedule: a playbook runs against a database, and what it finds becomes an incident
@@ -43,6 +45,31 @@ XAgent is free to use, in production too: see [Licensing](#licensing).
 
 The agent never changes anything on its own: it analyses and proposes, and a person decides. The
 [quick start guide](./docs/en/quick-start.md) lists what the agent does and where its limits are.
+
+## How XAgent differs from xataio/agent
+
+XAgent started as a fork of [xataio/agent](https://github.com/xataio/agent) and kept its shape: an
+agent that reads logs and metrics and talks about one database at a time. What was added is what an
+on-premise team needs to run it for real:
+
+- **Runs inside your perimeter.** A local model through Ollama or vLLM, or any OpenAI-compatible
+  server; an offline installer archive for a network without internet; no telemetry.
+- **Commands with human approval.** The agent proposes one command, shows the risk, and a person
+  allows or declines it in the chat. Off by default, enabled per database.
+- **Incident records instead of a message stream.** A problem is opened once, confirmed while it
+  lasts and closed with a reason; Slack hears about it three times, not on every run.
+- **Clusters.** Patroni and other replication setups: node roles, replica lag, settings that differ
+  between nodes, any member as a switchover point.
+- **Team access.** Four roles, per-database grants, private chats, a project activity log.
+- **Investigations from your monitoring.** AlertManager or Prometheus fires, the agent investigates in
+  a queue that survives a restart, and a flapping problem gets one investigation.
+- **PostgreSQL 14-18 documentation built in**, searched and quoted without leaving the network.
+
+## Pilots and partnerships
+
+XAgent is looking for teams to run it on real databases and say what breaks. To talk about a pilot,
+an integration with your PostgreSQL offering or anything else: open an issue in this repository or
+write to the address on the author's GitHub profile.
 
 ## Install
 
