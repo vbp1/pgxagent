@@ -308,8 +308,8 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | `AUTH_OPENID_SECRET`                | The OpenID Client Secret                                                                              | -       |
 | `AUTH_OPENID_ISSUER`                | The OpenID Issuer URL                                                                                 | -       |
 | `SQL_MODE`                          | Unlocks the **Enable SQL Mode** switch in the target form; without it the switch stays greyed out    | `false` |
-| `MAX_PARALLEL_RUNS`                 | The maximum number of parallel schedules. Do not set `0` - monitoring turns off silently             | `20`    |
-| `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` | The schedule timeout (seconds)                                                                        | `900`   |
+| `MAX_PARALLEL_RUNS`                 | How many schedule runs may be in flight at once. Below `1` the service does not start                | `20`    |
+| `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` | How long a run is given before it is ended and taken for dead (seconds). From `60` to `86400`         | `900`   |
 | `CHAT_TURN_IDLE_TIMEOUT_SECS`       | How long a chat turn may produce nothing before it is taken as stopped (seconds). Counted between signs of life; waiting for someone to approve a command does not count | `900`   |
 | `LLM_MAX_RETRIES`                   | The maximum number of LLM call retries                                                                | `3`     |
 | `CORE_PORT`                         | The core binary port                                                                                  | `3001`  |

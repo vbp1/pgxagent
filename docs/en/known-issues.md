@@ -10,12 +10,6 @@ If you set `OLLAMA_HEADERS` in `.env`, the service does not start: the value is 
 
 **What to do:** leave this variable unset. Extra HTTP headers for Ollama cannot be configured in the current version; if Ollama requires an authorisation header, put a reverse proxy in front of it that adds the header.
 
-### `MAX_PARALLEL_RUNS=0` silently turns monitoring off
-
-The value `0` is accepted without complaint, and after that no schedule ever runs. The log shows only the line `Deferring N jobs until next wake up`, which does not name the reason.
-
-**What to do:** set the value to at least 1. If monitoring stopped running, check this variable first.
-
 ### The `TZ` variable in `.env` shifts when schedules fire
 
 The next run time is stored in UTC, but before it is compared with the current time the offset of the container's time zone is added to it. By default the container runs on UTC, the offset is zero, and everything lines up. If you set `TZ` in `.env`, schedules start firing earlier or later than the time you set, by exactly that offset. The next-run column still shows the time you set: it is the firing that drifts.
@@ -32,23 +26,17 @@ If the core does not answer, or answers with an error, the sign-in page says "in
 
 ## Scheduled monitoring
 
-### Turning a schedule off while it is running does not stick
+### Changing a schedule while it is running does not stick
 
-If you turn a check off while it is running, the "enabled" flag is written back at the end of the run from the state the run saw when it started. A check you turned off keeps running on schedule.
+The settings a run works from are read when the run starts, and at the end of the run the "enabled" flag and the next run time are written back from that reading. A check you turned off mid-run keeps running on schedule, and a new due time you set mid-run is replaced when the run finishes.
 
-**What to do:** turn a schedule off while no run is in progress, and check the switch again after the current run finishes.
+**What to do:** change a schedule while no run is in progress, and check the switch and the next-run column again after the current run finishes.
 
-### Turning a running check off and straight back on starts a second one
+### A long run is ended before it finishes
 
-Turning it off clears the "running" mark, turning it on sets a new due time, and at that due time the scheduler picks the same schedule up a second time while the first check is still running. That gives you two calls to the model, two series of database queries and two reports about the same thing.
+`TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` (900 seconds by default) is how long a run is given before it is taken for dead. A run that reaches the limit is ended, recorded as a failed run and counted towards the schedule's failure streak, so a heavy playbook on a large database can keep failing without ever writing a report.
 
-**What to do:** between turning it off and back on, wait for the running check to finish.
-
-### A long run is restarted on top of the running one
-
-A run that takes longer than `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` (900 seconds by default) is considered stuck and started again, even if it is alive and working.
-
-**What to do:** for heavy playbooks, raise `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` to the time they actually need.
+**What to do:** for heavy playbooks, raise `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` to the time they actually need. The lowest value the service accepts is 60 seconds.
 
 ### A time range that cannot be parsed is replaced with the default
 

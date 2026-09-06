@@ -14,6 +14,8 @@ something needs attention. It is like having an experienced DBA on your team, av
 
 This repository holds the installer, the release archives, and the documentation. The source lives elsewhere.
 
+XAgent is free to use, in production too: see [Licensing](#licensing).
+
 **Key features:**
 
 - Monitoring on a schedule: a playbook runs against a database, and what it finds becomes an incident
@@ -127,7 +129,10 @@ archives and their checksums.
 
 ## Licensing
 
+XAgent is free to use, including in production and for commercial purposes, on any number of servers
+and databases. You may not resell it, redistribute it to third parties or offer it as a hosted service.
+The full terms are in [LICENSE.md](./LICENSE.md).
+
 XAgent is a fork of [xataio/agent](https://github.com/xataio/agent), now archived. Code derived from
-the upstream project is licensed under the Apache License 2.0; see
-[LICENSE-APACHE-2.0](./LICENSE-APACHE-2.0). Everything else is proprietary and is not licensed for use,
-copying, modification, or distribution.
+the upstream project remains under the Apache License 2.0; see
+[LICENSE-APACHE-2.0](./LICENSE-APACHE-2.0).
