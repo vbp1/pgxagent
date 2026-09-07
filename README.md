@@ -6,6 +6,8 @@
   </picture>
 </div>
 
+**English** | [Русский](./README.ru.md)
+
 # XAgent, your AI expert in PostgreSQL
 
 XAgent is an AI agent that watches your PostgreSQL databases: it reads logs and metrics, finds what is
@@ -16,7 +18,16 @@ This repository holds the installer, the release archives, and the documentation
 
 XAgent is free to use, in production too: see [Licensing](#licensing).
 
-![Alerts: one record per problem, not per run](docs/images/alerts-dark.png)
+## Two minutes of XAgent
+
+The sales report has become slow. The agent finds the dropped index, proposes one command, a person
+allows it, and the report is fast again. Narrated demo, two minutes:
+
+https://github.com/user-attachments/assets/c5698ed8-3011-4e56-b904-f45dccab0e4f
+
+The same walk without sound, in short:
+
+![The agent proposes CREATE INDEX, a person allows it, the report is fast again](docs/images/demo-en.gif)
 
 **Key features:**
 
@@ -64,6 +75,8 @@ on-premise team needs to run it for real:
 - **Investigations from your monitoring.** AlertManager or Prometheus fires, the agent investigates in
   a queue that survives a restart, and a flapping problem gets one investigation.
 - **PostgreSQL 14-18 documentation built in**, searched and quoted without leaving the network.
+
+![Alerts: one record per problem, not per run](docs/images/alerts-dark.png)
 
 ## Pilots and partnerships
 
