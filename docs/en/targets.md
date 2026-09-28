@@ -34,6 +34,8 @@ Why one shared host cannot describe a cluster: the agent has to reach **every** 
 
 **Node address override.** The address for the agent (`connectHost`/`connectPort`) is prefilled at discovery, but it can be edited. The edit is saved as a permanent override (bound to `nodeName`) and **survives rediscovery and even removing and re-adding the node** - useful when the agent and the cluster sit in different networks.
 
+**Ports.** Every port a target carries is a whole number from 1 to 65535; any other value is refused on save, and the form names the field to correct. A cluster node declared without a port gets 5432. A standalone target takes its port from the connection string, read the way the driver dials it (5432 when the string names none); the **Instance Port** field of the target form sets it by hand where the monitor reports a different port than the agent dials - a connection pooler in front of the instance, for example. Within a project, two nodes cannot share the same machine name and port.
+
 ---
 
 ## Monitoring labels (selectors)
@@ -156,7 +158,7 @@ The cluster map is refreshed by several triggers: on scheduled monitoring runs, 
 
 ### Timeouts
 
-Every connection to a node and every call to the Patroni API is time-limited, and nodes are polled independently: one unreachable node spoils only its own status and **never hangs** the refresh of the whole topology.
+Every connection to a node and every call to the Patroni API is time-limited, and nodes are polled independently: one unreachable node spoils only its own status and **never hangs** the refresh of the whole topology. A host name that does not resolve is reported together with the host and port the agent was dialing, so the error says which node it is about.
 
 ---
 
@@ -173,7 +175,7 @@ The cache is disposable: it is deleted together with the node.
 
 ## Matching webhooks
 
-An alert is matched to a target by the node's **saved** machine name (the **Machine Name** field) - a fast index lookup within the project, without touching the databases themselves. In the usual "one database per host" case the host name is unique and the match is unambiguous. Nodes are distinguished by the `(hostname, port)` pair, but the lookup uses the host name alone: if one machine hosts several watched databases, the oldest matching node is taken and a warning about the ambiguity is written to the service log - see [known-issues.md](known-issues.md). For a cluster, the investigation is bound to the node where the alert fired, with access to the context of the whole cluster. For more, see [webhooks.md](webhooks.md).
+An alert is matched to a target by the node's **saved** machine name (the **Machine Name** field) - a fast index lookup within the project, without touching the databases themselves. In the usual "one database per host" case the host name is unique and the match is unambiguous. Nodes are distinguished by the `(hostname, port)` pair: where one machine hosts several watched databases, the webhook's **Port Label** supplies the port that picks one of them, and without a usable port the investigation is refused with a message saying how many databases share the machine and what to set. An alert port that differs from the registered port is refused as well, even when the machine carries a single database. For a cluster, the investigation is bound to the node where the alert fired, with access to the context of the whole cluster. For more, see [webhooks.md](webhooks.md).
 
 ---
 
@@ -187,7 +189,7 @@ Access to a target comes from three things: the member's role in the project, th
 
 Five fields are stored as **secrets** (masked on the wire, revealed by rights, audited on break-glass): the standalone connection string, the cluster database password, the Patroni API password, and the two client TLS keys (database and Patroni).
 
-Deleting a target is **blocked** while monitoring schedules point at it, so that monitoring is not wiped out by an accidental click.
+Deleting a target is **blocked** while monitoring schedules point at it, so that monitoring is not wiped out by an accidental click, and while a command the agent proposed on it is still waiting, running, or has an outcome not yet reported.
 
 ---
 

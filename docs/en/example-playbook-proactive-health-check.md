@@ -70,7 +70,7 @@ LIMIT 10
 
 Step 2: Check Connection Health
 
-Use getConnectionsStats and getConnectionsGroups for overview.
+Use getConnectionsGroups for overview: its summary is the total, its data the breakdown by group.
 
 Additionally, check idle-in-transaction connections:
 Use executeReadOnlyQuery:

@@ -4,12 +4,12 @@ Once XAgent is installed and running, set it up with the steps below.
 
 ## 1. Create a project
 
-1. Open the web interface: `http://<host>:<port>` (port `8080` by default)
-2. Click **Create Project**
+1. Open the web interface: `http://<host>:<port>` (port `8080` by default) and sign in. On the first open, create the superadmin account - see [First sign-in](install-guide.md#5-first-sign-in)
+2. With no projects yet, the page shows the project form right away; later, click **Create Project** above the project list
 3. Fill in:
-   - **Project Name** - any name you like (for example, `production`)
+   - **Create a new project** (**Project Name** in the later form) - any name you like (for example, `production`)
    - **Resource Provider** - `Other`
-4. Click **Create**
+4. Click **Create project** (**Create** in the later form)
 
 ## 2. Set up the models
 
@@ -17,9 +17,9 @@ Go to **Models** (project side menu).
 
 1. Click **Probe** next to the available models - XAgent checks the connection and the supported capabilities (Tool Calling, Structured Output, Reasoning)
 2. Turn on the models you need with the switch in the **Enabled** column
-3. Mark one model as **Default** - it is used for new chats and for monitoring jobs
+3. Click **Set as default** on one model - it is used for new chats and for monitoring jobs
 
-> **Tip**: set the model context window in the **Context Window** field: `120k`.
+> **Tip**: set the model context window by clicking its value in the **Context** column: `120k`.
 
 ## 3. Connect a database
 

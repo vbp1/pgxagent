@@ -43,6 +43,8 @@ A new member gets the **Viewer** role until someone assigns another one.
 | Write to the people in a chat, without the agent   |  ✅   |     ✅     |     ✅     |   ✅   |
 | Start a conversation with the agent                |  ✅   |     ✅     |     ✅     |   ❌   |
 | Take their own chats out of the project view       |  ✅   |     ✅     |     ❌     |   ❌   |
+| Open the documents the agent writes in a chat       |  ✅   |     ✅     |     ✅     |   ✅   |
+| Change and remove those documents                  |  ✅   |     ✅     |     ✅     |   ❌   |
 | **Working with data**                             |       |            |            |        |
 | Run SQL queries                                    |  ✅   |     ❌     |     ✅     |   ❌   |
 | Approve a command that changes data or settings    |  ✅   |     ❌     |     ✅     |   ❌   |
@@ -111,6 +113,8 @@ A chat with no target at all is visible to the project. For a chat about a delet
 
 Alert investigations and scheduled checks are the project's record of what the system did, so they are always shared and cannot be hidden.
 
+What the system writes about a database outside chats follows condition 3 as well. Check reports and a schedule's run history, the check results shown on the dashboards, alert records and the runs of alert investigations about a private target reach only the people who may see that target: its creator, whoever it was granted to by name, and the Owner. The agent's search over check reports answers the same way. A record or run that names no target is visible to the project.
+
 ---
 
 ## Tools
@@ -126,6 +130,8 @@ Access to a tool is checked at three tiers, and all three must pass:
 1. the tool is enabled in the installation - the **MCP** section of the side menu, available to the installation administrator;
 2. the tool is enabled in the project - **Settings → Roles**, the **Project tools (MCP)** card; enabling it here makes it available to everyone it is granted to in this project;
 3. the member reaches the tool - the tool access level on their member card.
+
+For the Owner only the first tier applies. Metrics and logs pass the first two tiers like any other tool: switched off in the installation or not enabled in the project, they are refused.
 
 The tool access level governs connected tools only. "None" means "no connected tools"; metrics and logs remain. To keep somebody from those as well, they need a role that works with no tools - **Viewer**.
 
@@ -146,7 +152,9 @@ Two consequences follow. If the creator is demoted to Viewer or removed from the
 
 ## What goes into the log
 
-The project log (**Settings → Audit**, available to Owner and Manager) records the actions that concern rights and access: role changes, granting and revoking access to targets and tools, and also revealing a target's secrets and an owner reading somebody else's private chat.
+The project log (**Settings → Audit**, available to Owner and Manager) records the actions that concern rights, access and changes to the databases: adding and removing members, role changes and personal exceptions (the tool access level included), changes of target and chat visibility, granting and revoking access to targets, the Owner opening a secret of somebody else's private target or reading somebody else's private chat, every disclosure of an integration secret (AWS, GCP, Slack), changing commands - approved, declined, stopped and how they ended - and changes to the agent's notes on a target.
+
+Integration secrets - the AWS secret access key, the GCP service-account private key and the Slack webhook address - come to the browser masked. The real value is shown only on an explicit request by someone with the right to change project settings, and that request is written to the log before the value is returned.
 
 ---
 

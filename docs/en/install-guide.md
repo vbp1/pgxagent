@@ -10,7 +10,7 @@
 | RAM            | 4 GB                                     | 8-16 GB                                                                                                                  |
 | Disk           | 15 GB                                    | 30+ GB                                                                                                                   |
 | Network        | Network access to the target PostgreSQL  | Network access to the target PostgreSQL                                                                                  |
-| Time zone      | Any                                      | The host clock changes nothing: the container runs on UTC. Do not set `TZ` in `.env`, see [known-issues.md](known-issues.md) |
+| Time zone      | Any                                      | The host clock changes nothing: the container runs on UTC. Cron expressions of schedules are read in the container's time zone; set `TZ` in `.env` to read them in another one |
 | **LLM**        | One of the options below                 | A cloud API (DeepSeek)                                                                                                   |
 
 **Ways to connect an LLM**:
@@ -60,6 +60,7 @@ The last column is the name the model's own vendor uses. Aggregators put a prefi
 | Type in the installer | What you need                                                                        |
 | --------------------- | -------------------------------------------------------------------------------------- |
 | OpenAI-compatible API | The base URL and API key of any OpenAI-compatible server (a local vLLM, for example)  |
+| OpenAI (native)       | An OpenAI API key                                                                      |
 | LiteLLM proxy         | The URL and key of a LiteLLM instance                                                 |
 | Ollama (local)        | The URL of a local Ollama server                                                      |
 
@@ -135,13 +136,19 @@ not the installer's environment: the intermediary set in the daemon settings wor
 
 The installer then runs an interactive wizard:
 
-1. **General settings** - port, URL, PostgreSQL credentials
+1. **General settings** - port, URL, PostgreSQL credentials, `AUTH_TRUST_HOST`
 2. **Authentication** - optional: OpenID SSO
 3. **LLM provider** - choice and configuration (required)
 4. **Integrations** - optional: VictoriaLogs, VictoriaMetrics
 5. **Agent answer language** - English / Русский (written to `.env` as `SYSTEM_PROMPT_ADD`)
 
-The wizard generates the secrets (`AUTH_SECRET`, `CORE_SECRET`, the PostgreSQL password) itself, without asking.
+The wizard generates `AUTH_SECRET` and `CORE_SECRET` itself, without asking. The PostgreSQL password is
+generated when you leave its prompt empty.
+
+Signing in through an identity provider is turned on by the three `AUTH_OPENID_*` variables. Register
+`<installation URL>/api/auth/callback/default` with the provider as the redirect URI. Password sign-in
+stays on the sign-in page either way: the installation's superadmin signs in with a password, and the
+provider's button stands next to that form.
 
 Everything that can fail is checked **before** the wizard and before the directory is created: whether
 the images are available in the registry, and whether there is free disk space. A failure at this stage
@@ -170,6 +177,16 @@ docker compose logs -f xagent
 ```
 
 Open in a browser: `http://<host>:<port>` (port `8080` by default).
+
+### 5. First sign-in
+
+On the first open the sign-in page shows the **Create the superadmin** form: a username, an optional
+display name and a password. This account administers the installation and grants access to everyone
+else. The form is shown until the installation has a superadmin with a password; after that the page
+shows the regular **Sign in** form (username or email, and password).
+
+With the `AUTH_OPENID_*` variables set, the **Sign in with your identity provider** button stands under
+either form.
 
 ## Updating
 
@@ -203,8 +220,9 @@ The update, step by step:
 - Gets the images - pulls them or loads them from the archive, while the previous version keeps running
 - Stops the stack (`docker compose down --remove-orphans`)
 - Creates the backup (if one was chosen)
-- Updates `docker-compose.yaml`
-- **Adds** new variables to `.env` (existing values are left alone)
+- Updates `docker-compose.yaml`, `init.sql` and the documentation in `docs/`
+- **Adds** new variables to `.env` at the end of the file, under a `# Added in <version>` comment (existing
+  values are left alone; an empty `AUTH_SECRET` or `CORE_SECRET` gets a generated value)
 - Starts the stack (if `--up` was given)
 
 ## Backup and rollback
@@ -311,8 +329,9 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | `MAX_PARALLEL_RUNS`                 | How many schedule runs may be in flight at once. Below `1` the service does not start                | `20`    |
 | `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` | How long a run is given before it is ended and taken for dead (seconds). From `60` to `86400`         | `900`   |
 | `CHAT_TURN_IDLE_TIMEOUT_SECS`       | How long a chat turn may produce nothing before it is taken as stopped (seconds). Counted between signs of life; waiting for someone to approve a command does not count | `900`   |
-| `LLM_MAX_RETRIES`                   | The maximum number of LLM call retries                                                                | `3`     |
-| `CORE_PORT`                         | The core binary port                                                                                  | `3001`  |
+| `LLM_MAX_ATTEMPTS`                  | How many failures in a row a run may take when talking to the model provider (a refused connection, a 429 or 5xx, an answer cut off midway); every completed exchange resets the count. A whole number, at least `1` | `10`    |
+| `LLM_RESPONSE_START_TIMEOUT_MS`     | How long to wait for a streaming answer to start before the attempt is retried (milliseconds). `0` waits indefinitely | `30000` |
+| `CORE_PORT`                         | The port the core binary listens on inside the container. `docker-compose.yaml` points the web server at `3001` (`CORE_URL`), so change both together | `3001`  |
 | `SYSTEM_PROMPT_ADD`                 | An addition to the system prompt                                                                      | -       |
 | `SQL_SYSTEM_PROMPT_ADD`             | An addition to the SQL agent prompt                                                                   | -       |
 
@@ -333,7 +352,9 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | `VICTORIALOGS_MAX_RESPONSE_BYTES`    | The response size limit of the built-in logs MCP server, in bytes        | `16384`                  |
 | `VICTORIAMETRICS_MAX_RESPONSE_BYTES` | The response size limit of the built-in metrics MCP server, in bytes     | `16384`                  |
 
-> The variables in each pair are set together, and the pairs are independent: the VictoriaLogs pair opens the **Enable Log Access** switch, the VictoriaMetrics pair opens **Enable Metrics Access**. If only the URL is set and the token is not, the matching switch in the target form stays unavailable. If your VictoriaLogs or VictoriaMetrics runs without authorisation, still set the token to any non-empty value.
+> Both size limits take a whole number of bytes. A value that is not one — `16k`, `32KB`, `auto` — stops the matching MCP server at startup with the reason on its error output, rather than being read as a smaller number.
+
+> The variables in each pair are set together, and the pairs are independent: the VictoriaLogs pair opens the **Enable Log Access** switch, the VictoriaMetrics pair opens **Enable Metrics Access**. If only the URL is set and the token is not, the matching switch in the target form stays unavailable. If your VictoriaLogs or VictoriaMetrics runs without authorisation, still set the token to any non-empty value. The wizard accepts an empty token and then writes only the URL - add the token to `.env` by hand.
 
 > Log and metric selectors (the node and cluster templates) are set per target in the **Targets** section, not through environment variables.
 
@@ -353,6 +374,8 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | --------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
 | `WEBHOOK_MAX_PARALLEL_RUNS` | How many webhook investigations run at once                                 | `3`                                                  |
 | `ALERT_RETENTION_DAYS`      | How many days a **closed** incident record is kept (1-3650); open records are never removed. A value outside that range stops the service | `90`                    |
+| `ALERT_CLOSE_NEWS_RETRY_SECS` | How often, in seconds, the agent retries the news of an incident a monitor has called over, when that news did not reach the incident chat or Slack the first time (60-86400). Also the pause before the first retry of a Slack message, doubled after every further failure. Three times this value must be shorter than `ALERT_CLOSE_NEWS_MAX_AGE_HOURS`. A value outside that range stops the service | `300` |
+| `ALERT_CLOSE_NEWS_MAX_AGE_HOURS` | How many hours after an incident was called over its news is still retried (1-168). A value outside that range stops the service | `24` |
 | `MAX_CATCHUP_BYTES`         | The weight one connection may be handed when it joins an answer already being written (at least 8192). A value below that stops the service | `5242880`            |
 | `WIDGETS_DISABLED`          | `true` removes the graphical widgets from interactive chats                 | `false`                                              |
 | `PG_DOCS_ARTIFACT_PATH`     | The path to the PostgreSQL documentation pack inside the container          | `/app/docs/postgresql-docs.json`                     |
@@ -459,6 +482,20 @@ Common causes:
 
 - A wrong LLM API key → check `.env`
 - PostgreSQL is not initialised yet → wait for the healthcheck (about 30 seconds)
+
+### Sign-in says the service is unavailable
+
+```
+Sign-in is temporarily unavailable: your credentials could not be checked. This is not a problem with your password
+```
+
+The web server could not get an answer from the core, so the password was never checked. The cause is in
+the logs (`docker compose logs xagent`), on a line starting with `[auth]`. The ending
+`the shell and Core do not share the same CORE_SECRET` means the two halves of the agent hold different
+`CORE_SECRET` values: check that `.env` sets `CORE_SECRET` once, with a non-empty value, and apply it with
+`docker compose up -d`.
+The first-run form reports the same cause with the message
+`Setup could not be completed: the service refused the request before reading it`.
 
 ### The container is marked `unhealthy`
 

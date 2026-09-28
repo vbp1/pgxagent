@@ -10,27 +10,19 @@ If you set `OLLAMA_HEADERS` in `.env`, the service does not start: the value is 
 
 **What to do:** leave this variable unset. Extra HTTP headers for Ollama cannot be configured in the current version; if Ollama requires an authorisation header, put a reverse proxy in front of it that adds the header.
 
-### The `TZ` variable in `.env` shifts when schedules fire
-
-The next run time is stored in UTC, but before it is compared with the current time the offset of the container's time zone is added to it. By default the container runs on UTC, the offset is zero, and everything lines up. If you set `TZ` in `.env`, schedules start firing earlier or later than the time you set, by exactly that offset. The next-run column still shows the time you set: it is the firing that drifts.
-
-**What to do:** do not set `TZ` in `.env`. The time zone of the host itself has no effect on schedules, so there is no need to change it.
-
-## Accounts and sign-in
-
-### A service failure during sign-in looks like a wrong password
-
-If the core does not answer, or answers with an error, the sign-in page says "invalid login or password" - that is, it blames the credentials instead of the real cause.
-
-**What to do:** if sign-in suddenly fails with a password you know is right, look at `docker compose logs xagent` before you change the password.
-
 ## Scheduled monitoring
 
-### Changing a schedule while it is running does not stick
+### A new interval saved during a run applies from the run after next
 
-The settings a run works from are read when the run starts, and at the end of the run the "enabled" flag and the next run time are written back from that reading. A check you turned off mid-run keeps running on schedule, and a new due time you set mid-run is replaced when the run finishes.
+A run plans the next due time from the settings it started with. If you change the interval or the cron expression while a run is in progress, the next run is still planned by the old settings, and the new ones take effect from the run after it. The on/off switch takes effect at once.
 
-**What to do:** change a schedule while no run is in progress, and check the switch and the next-run column again after the current run finishes.
+**What to do:** change the interval while no run is in progress. If you changed it mid-run, check the next-run column after the run finishes and, if the time is not the one you expect, save the schedule once more.
+
+### Deleting a schedule can fail without a message
+
+If the service refuses to delete a schedule, the settings screen stays as it was, with the delete confirmation still open, and says nothing about the refusal.
+
+**What to do:** if pressing delete does not take you back to the list of schedules, reload the page, check whether the schedule is still there, and look at `docker compose logs xagent` for the reason.
 
 ### A long run is ended before it finishes
 
@@ -44,20 +36,6 @@ If a schedule is created through the API, the analysis time range is not validat
 
 **What to do:** when you create a schedule through the API, write the range the same way the interface lists it (`15m`, `1h`, `6h`, `24h`, `7d`, `30d`), or as a full date such as `2026-08-27T10:00:00Z`. If a check covered a different period than the one you set, check how the range is spelled.
 
-## Webhooks
-
-### The value 0 in the "Max Steps" field cannot be saved
-
-The field accepts 0 and is labelled as the way to stop the investigation from moving on to other playbooks, but on save the setting is rejected: allowed values are 1 to 50.
-
-**What to do:** leave it at 1 - the investigation runs the chosen playbook and does not call others.
-
-### With several databases on one host name, the alert goes to the oldest one
-
-Matching is done by host name only, ignoring the port and the rest of the alert labels. If one machine hosts several watched databases, the investigation runs on the one that was added first.
-
-**What to do:** for machines with several databases, give the nodes different **Machine Name** values and send that same value in the alert label.
-
 ## Interface
 
 ### When the connection drops, the menu counters silently show stale numbers
@@ -66,8 +44,26 @@ The number badges next to the **Alerts** item keep showing the last value they r
 
 **What to do:** if the numbers look suspiciously frozen, open the **Alerts** page and see whether it warns about a failed update.
 
-### Stopping an answer is drawn as a failure
+### Stopping an SQL chat while it picks a schema is drawn as a failure
 
-If you click **Stop** while the agent is answering, a red error bar appears under the answer even though nothing broke.
+In an SQL chat that has no schema chosen yet, the agent first picks the schema to work in. If you click **Stop** at that moment, an error bar appears instead of the usual note that the answer was interrupted.
 
-**What to do:** the bar after your own **Stop** can be ignored: the part of the answer that was already saved stays in the chat.
+**What to do:** the bar after your own **Stop** can be ignored; ask the question again when you are ready.
+
+### A failed read of the target list shows an empty list
+
+If the **Targets** page cannot read the list of databases, it shows no rows and zeros on the summary tiles, with no message about the failure.
+
+**What to do:** if the list is suddenly empty, reload the page; if it stays empty, look at `docker compose logs xagent`.
+
+### The target creation window locks when the check after creation fails
+
+Adding a standalone database takes three steps in one window: create the record, check the connection, collect facts about the database. If the service does not answer the connection check (for example, the network dropped or the session expired), the window stays in its busy state and cannot be closed. The database record is already created at that point.
+
+**What to do:** reload the page. The new database is in the **Targets** list with its connection status.
+
+### Times on screen use the browser's time zone
+
+The time zone chosen in the user menu reaches the agent: it uses that zone for times in its answers. Dates and times on the pages themselves - the last check of a target, the last and next run of a schedule, and so on - are shown in the browser's time zone.
+
+**What to do:** keep the time zone in the user menu the same as the browser's, or read the times on the pages as the browser's local time.

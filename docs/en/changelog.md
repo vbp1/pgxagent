@@ -1,5 +1,17 @@
 # What's new
 
+## Version 0.6.1
+
+A maintenance release: bug fixes and tighter access rules.
+
+- Fixed bugs across alerts and webhooks, chat, scheduled checks, access rights, sign-in, the diagnostic tools, and the metric and log sources.
+
+### What to watch for when upgrading
+
+- **Alerts from a machine running several databases.** The agent no longer picks the oldest database on the machine. Set the new **Port Label** on the receiver to the alert label that carries the instance port. Without a port, such an alert is refused and the refusal says what to set. If the machine has only one database and the port in the alert does not match it, the alert is refused too. Standalone targets now have an **Instance Port** field. On first start the agent reads each standalone's port from its connection string. A port outside the valid range is refused; it is no longer replaced with 5432.
+- **Settings that stop the service.** `MAX_PARALLEL_RUNS` now limits how many scheduled runs are in progress at once; the others wait in a queue. It must be a whole number of at least 1. `TIMEOUT_FOR_RUNNING_SCHEDULE_SECS` must be between 60 and 86400. `VICTORIALOGS_MAX_RESPONSE_BYTES` and `VICTORIAMETRICS_MAX_RESPONSE_BYTES` take a whole number of bytes. A value outside these rules stops the service at startup and names the setting.
+- **Custom check scenarios.** `getConnectionsStats` and `getDeadlockCount` are gone: their data is now in `getConnectionsGroups` and `getTransactionStats`. The Google Cloud instance tool is now `getCloudSQLInstanceInfo`. A scenario that names the old tools has to be rewritten.
+
 ## Version 0.6.0
 
 In this version the agent runs commands on the databases it watches with a person's approval, keeps incident records instead of a stream of identical messages, reads the PostgreSQL documentation, and tells project roles apart.

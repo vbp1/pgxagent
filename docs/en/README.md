@@ -10,5 +10,5 @@ The same guides in Russian are in [`../ru`](../ru).
 | [`install-guide.md`](install-guide.md)                                                     | Requirements, both archives, install, update, exit codes    |
 | [`targets.md`](targets.md)                                                                 | Adding the databases XAgent watches                         |
 | [`rbac.md`](rbac.md)                                                                       | Roles, target access, chat visibility and tool grants       |
-| [`webhooks.md`](webhooks.md)                                                               | Sending alerts to an external system                        |
+| [`webhooks.md`](webhooks.md)                                                               | Receiving alerts from an external monitoring system         |
 | [`example-playbook-proactive-health-check.md`](example-playbook-proactive-health-check.md) | A worked playbook, as an example to copy                    |
