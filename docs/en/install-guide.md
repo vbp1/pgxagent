@@ -136,11 +136,12 @@ not the installer's environment: the intermediary set in the daemon settings wor
 
 The installer then runs an interactive wizard:
 
-1. **General settings** - port, URL, PostgreSQL credentials, `AUTH_TRUST_HOST`
+1. **General settings** - port, URL (`https://`, see [HTTPS and the certificate](#https-and-the-certificate)), PostgreSQL credentials, `AUTH_TRUST_HOST`
+   - **Certificate** - paths to your own certificate and its key (PEM), or empty to have a self-signed one made
 2. **Authentication** - optional: OpenID SSO
 3. **LLM provider** - choice and configuration (required)
 4. **Integrations** - optional: VictoriaLogs, VictoriaMetrics
-5. **Agent answer language** - English / Русский (written to `.env` as `SYSTEM_PROMPT_ADD`)
+5. **Agent language** - English / Русский (written to `.env` as `AGENT_LANGUAGE`); a project may choose its own in its settings
 
 The wizard generates `AUTH_SECRET` and `CORE_SECRET` itself, without asking. The PostgreSQL password is
 generated when you leave its prompt empty.
@@ -159,6 +160,7 @@ Once the wizard is done, the installer:
 - Gets the images: pulls them (showing progress) or loads them from the archive
 - Creates the configuration directory
 - Writes `.env` (chmod 0600)
+- Puts the HTTPS front door's files in `proxy/` and your certificate, if you gave one, in `certs/`
 - Starts the stack (if `--up` was given)
 
 Images that are already there are not pulled again: the decision is made by digest, so a repeat run
@@ -172,11 +174,13 @@ cd /opt/xagent
 # Container status
 docker compose ps
 
-# Application logs
-docker compose logs -f xagent
+# Logs of the backend and the web interface
+docker compose logs -f xagent-core xagent-web
 ```
 
-Open in a browser: `http://<host>:<port>` (port `8080` by default).
+Open in a browser: `https://<host>:<port>` (port `8080` by default). An `http://` address on the same port
+moves to `https://` by itself. With a self-signed certificate the browser warns about it once; see
+[HTTPS and the certificate](#https-and-the-certificate).
 
 ### 5. First sign-in
 
@@ -220,9 +224,17 @@ The update, step by step:
 - Gets the images - pulls them or loads them from the archive, while the previous version keeps running
 - Stops the stack (`docker compose down --remove-orphans`)
 - Creates the backup (if one was chosen)
-- Updates `docker-compose.yaml`, `init.sql` and the documentation in `docs/`
+- Updates `docker-compose.yaml`, `init.sql`, the documentation in `docs/` and the HTTPS front door's files in
+  `proxy/`; the certificate in `certs/` is left as it is
 - **Adds** new variables to `.env` at the end of the file, under a `# Added in <version>` comment (existing
   values are left alone; an empty `AUTH_SECRET` or `CORE_SECRET` gets a generated value)
+- Moves `PUBLIC_URL` from `http://` to `https://` and adds `CERT_HOST` from its host, when the installation
+  predates the HTTPS front door; the update prints both changes. It stops before anything is stopped or
+  replaced when `.env` has no `PUBLIC_URL` line, or when `CERT_HOST` is to be added and the host in
+  `PUBLIC_URL` cannot be read or holds characters other than letters, digits, `.`, `-` and `:`. It warns
+  when that host is `0.0.0.0`, which no browser opens, and when `PUBLIC_URL` was already `https://`: such
+  an installation sits behind a reverse proxy of your own, which has to forward to `https://` from now on
+  (see [Your own reverse proxy](#your-own-reverse-proxy))
 - Starts the stack (if `--up` was given)
 
 ## Backup and rollback
@@ -231,7 +243,7 @@ The update, step by step:
 
 | Mode    | What is saved                                       | Size                   |
 | ------- | --------------------------------------------------- | ---------------------- |
-| `files` | `docker-compose.yaml`, `.env`, `.xagent/state.json`  | ~10 KB                 |
+| `files` | `docker-compose.yaml`, `.env`, `.xagent/state.json`, the certificate in `certs/`, the front door files in `proxy/` | ~10 KB |
 | `full`  | The files plus the PostgreSQL data (a Docker volume) | Depends on the data    |
 
 Backups are saved to `<install-path>/backups/<timestamp>/`.
@@ -261,6 +273,8 @@ sudo ./xagent-installer rollback --path /opt/xagent \
 ├── .env                    # Environment variables (chmod 0600)
 ├── .env.example            # An example of the base set of variables
 ├── init.sql                # The database initialisation script
+├── proxy/                  # The HTTPS front door: nginx configuration, certificate script
+├── certs/                  # tls.crt + tls.key the front door serves
 ├── docs/                   # User documentation
 │   ├── ru/                 # Russian texts
 │   └── en/                 # English
@@ -286,20 +300,63 @@ docker compose restart     # Restart
 docker compose ps          # Container status
 ```
 
+## HTTPS and the certificate
+
+XAgent is served over HTTPS by a front door, the `proxy` service (nginx), on the port chosen at
+installation. The app itself is not published. The front door speaks HTTP/2, which carries all of a
+browser's connections to XAgent in one: every open chat window keeps a live connection, and over plain
+HTTP/1.1 a browser allows only six to one address, so from the seventh window on pages stop loading.
+
+The certificate is two files in `certs/`: `tls.crt` and `tls.key` (PEM). On the first start the
+`cert-init` service makes a self-signed pair for `CERT_HOST` (also valid for `localhost` and
+`127.0.0.1`) when the folder holds none; a pair already there is left alone. A browser warns once about
+a self-signed certificate.
+
+To use your organisation's certificate, or to renew it, put the new files in `certs/` under the same
+names and have the front door read them again without a restart:
+
+```bash
+cd /opt/xagent
+docker compose exec proxy nginx -s reload
+```
+
+### Your own reverse proxy
+
+When XAgent sits behind a reverse proxy of your own, that proxy must:
+
+- forward to `https://<host>:<port>`: the published port speaks HTTPS only, and a plain request to it is
+  answered with a move to `https://`;
+
+- talk HTTP/2 to browsers - without it at most six chat windows work at once;
+- pass the live streams on as they arrive, without buffering: `/api/chats/<id>/events`,
+  `/api/chats/<id>/stream` and `/api/targets/status/stream` (the app also sends `X-Accel-Buffering: no`);
+- wait at least 10 seconds between two reads from XAgent on those streams (they write every 8 seconds),
+  and at least 300 seconds on ordinary requests;
+- pass `Host` with the port, `X-Forwarded-Host` and `X-Forwarded-Proto: https`: sign-in builds its
+  addresses and picks its cookie names from them.
+
 ## Environment variables
 
 The variables live in `.env`. The wizard writes the required values itself; the rest are added by hand from this reference. The `.env.example` file next to the installation shows the base set of lines - for the full list of settings see the tables below. Its values are samples: take the secrets (`AUTH_SECRET`, `CORE_SECRET`, the database password) only from what the wizard generated, otherwise the installation runs on well-known keys.
+
+The backend (`xagent-core`) reads the whole of `.env`. The web interface (`xagent-web`) gets only the
+keys it uses: `PUBLIC_URL`, `AUTH_SECRET`, `AUTH_TRUST_HOST`, `CORE_SECRET`, `CORE_PORT` (as the core address `CORE_URL`), `SQL_MODE`,
+`AUTH_OPENID_ID`, `AUTH_OPENID_SECRET`, `AUTH_OPENID_ISSUER` and `TZ`; the database password and the
+model keys never reach it.
 
 ### Required
 
 | Variable            | What it is                     | Default               |
 | ------------------- | ------------------------------ | --------------------- |
-| `PUBLIC_URL`        | The public URL of the app      | `http://0.0.0.0:8080` |
+| `PUBLIC_URL`        | The public URL of the app, `https://` | `https://<host name>:8080` |
+| `CERT_HOST`         | The host the self-signed certificate is made for | The host of `PUBLIC_URL` |
 | `POSTGRES_USER`     | The PostgreSQL user            | `dbagent`             |
 | `POSTGRES_PASSWORD` | The PostgreSQL password        | Generated             |
 | `POSTGRES_DB`       | The database name              | `dbagent`             |
 | `AUTH_SECRET`       | The secret for JWT             | Generated             |
 | `CORE_SECRET`       | The secret for the core binary | Generated             |
+
+Keep `CORE_SECRET` unchanged across restarts and database restores. It also protects the request hashes stored for API retries. Changing it makes retries whose records were protected with the previous secret return `422` until those records expire after 24 hours. Legacy records that have not yet been protected remain replayable. The scheduler removes expired records and protects up to 100 legacy request hashes per minute while Core is running. Old database backups can still contain the previous unprotected hashes; changing the secret does not remove them. Reset affected users' passwords if such a backup was exposed.
 
 ### LLM provider (at least one)
 
@@ -331,9 +388,11 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | `CHAT_TURN_IDLE_TIMEOUT_SECS`       | How long a chat turn may produce nothing before it is taken as stopped (seconds). Counted between signs of life; waiting for someone to approve a command does not count | `900`   |
 | `LLM_MAX_ATTEMPTS`                  | How many failures in a row a run may take when talking to the model provider (a refused connection, a 429 or 5xx, an answer cut off midway); every completed exchange resets the count. A whole number, at least `1` | `10`    |
 | `LLM_RESPONSE_START_TIMEOUT_MS`     | How long to wait for a streaming answer to start before the attempt is retried (milliseconds). `0` waits indefinitely | `30000` |
-| `CORE_PORT`                         | The port the core binary listens on inside the container. `docker-compose.yaml` points the web server at `3001` (`CORE_URL`), so change both together | `3001`  |
+| `CORE_PORT`                         | The port the core listens on inside the `xagent-core` container. `docker-compose.yaml` points the web server at the same port (`CORE_URL`) | `3001`  |
+| `AGENT_LANGUAGE`                    | The language the agent writes in for people: answers, chat titles, notes, incident records, run reports, drafted playbooks. Exactly `ru` or `en`; any other value stops the service at startup. Empty: the agent follows a language `SYSTEM_PROMPT_ADD` names, otherwise the question's language in a chat and English in a run. A project's own choice in its settings wins | -       |
 | `SYSTEM_PROMPT_ADD`                 | An addition to the system prompt                                                                      | -       |
 | `SQL_SYSTEM_PROMPT_ADD`             | An addition to the SQL agent prompt                                                                   | -       |
+| `CONTEXT_COMPACTION_DISABLED` | `true` disables summaries for long history. Compaction requires a known model context window | `false` |
 
 ### Monitoring (optional - logs and metrics)
 
@@ -351,12 +410,33 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | `VICTORIAMETRICS_LABEL_ROLE`         | The name of the label carrying the node role                             | `role`                   |
 | `VICTORIALOGS_MAX_RESPONSE_BYTES`    | The response size limit of the built-in logs MCP server, in bytes        | `16384`                  |
 | `VICTORIAMETRICS_MAX_RESPONSE_BYTES` | The response size limit of the built-in metrics MCP server, in bytes     | `16384`                  |
+| `MONITORING_SOURCES_CHECK_MINUTES`   | How often, in minutes, the agent checks that VictoriaMetrics and VictoriaLogs answer (1-1440). A failed source is checked again every minute. A value outside the range stops the service | `15` |
 
 > Both size limits take a whole number of bytes. A value that is not one — `16k`, `32KB`, `auto` — stops the matching MCP server at startup with the reason on its error output, rather than being read as a smaller number.
 
 > The variables in each pair are set together, and the pairs are independent: the VictoriaLogs pair opens the **Enable Log Access** switch, the VictoriaMetrics pair opens **Enable Metrics Access**. If only the URL is set and the token is not, the matching switch in the target form stays unavailable. If your VictoriaLogs or VictoriaMetrics runs without authorisation, still set the token to any non-empty value. The wizard accepts an empty token and then writes only the URL - add the token to `.env` by hand.
 
 > Log and metric selectors (the node and cluster templates) are set per target in the **Targets** section, not through environment variables.
+
+> The agent reads metrics and logs through the built-in MCP servers `victoriametrics` and `victorialogs`. Both are switched off after installation. Switch them on in the **MCP** section of the side menu and in every project that needs them - **Settings → Roles**, the **Project tools (MCP)** card. While a server is off in the installation or not switched on in the project, the agent gets a refusal on every call to metrics or logs. The access steps are described in [rbac.md](rbac.md#tools).
+
+#### Metrics and logs from Vision (Skala-R)
+
+Vision serves metrics and logs through its own API, authorised by a token:
+
+| Variable                       | Value                                                 |
+| ------------------------------ | ----------------------------------------------------- |
+| `VICTORIAMETRICS_URL`          | `https://<Vision address>/vision/api/v1/tsdb`         |
+| `VICTORIALOGS_URL`             | `https://<Vision address>/vision/api/v1/victorialogs` |
+| `VICTORIAMETRICS_TOKEN`, `VICTORIALOGS_TOKEN` | An API token issued in Vision          |
+| `VICTORIAMETRICS_TLS_INSECURE`, `VICTORIALOGS_TLS_INSECURE` | `true` if Vision uses a self-signed certificate |
+
+On the target in XAgent:
+
+- each node's **Machine Name** is the name of the server object in Vision. Vision labels the node's metrics and logs with this name;
+- selectors - the **Spectrum** preset plus the rule `spectrum_` → `node_name="{{hostname}}"`. Vision labels host metrics (`node_*`) with `_node_id` and PostgreSQL metrics (`spectrum_*`) with `node_name`. Why the `spectrum_` rule has to be added by hand is in [known-issues.md](known-issues.md#metrics-and-logs).
+
+In version 0.6.1 some log and metric tools work only partly against Vision - see [known-issues.md](known-issues.md#metrics-and-logs). How to send Vision's alerts to the agent is in [webhooks.md](webhooks.md#alertmanager-inside-vision-skala-r).
 
 ### Commands on the server (optional)
 
@@ -373,17 +453,41 @@ The variables live in `.env`. The wizard writes the required values itself; the 
 | Variable                    | What it is                                                                | Default                                              |
 | --------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
 | `WEBHOOK_MAX_PARALLEL_RUNS` | How many webhook investigations run at once                                 | `3`                                                  |
+| `WEBHOOK_NODE_WAIT_MINUTES` | How many minutes an investigation waits for another problem's investigation on the same node before it runs beside it (a whole number of at least 1; anything else stops the service) | `30` |
 | `ALERT_RETENTION_DAYS`      | How many days a **closed** incident record is kept (1-3650); open records are never removed. A value outside that range stops the service | `90`                    |
 | `ALERT_CLOSE_NEWS_RETRY_SECS` | How often, in seconds, the agent retries the news of an incident a monitor has called over, when that news did not reach the incident chat or Slack the first time (60-86400). Also the pause before the first retry of a Slack message, doubled after every further failure. Three times this value must be shorter than `ALERT_CLOSE_NEWS_MAX_AGE_HOURS`. A value outside that range stops the service | `300` |
 | `ALERT_CLOSE_NEWS_MAX_AGE_HOURS` | How many hours after an incident was called over its news is still retried (1-168). A value outside that range stops the service | `24` |
 | `MAX_CATCHUP_BYTES`         | The weight one connection may be handed when it joins an answer already being written (at least 8192). A value below that stops the service | `5242880`            |
 | `WIDGETS_DISABLED`          | `true` removes the graphical widgets from interactive chats                 | `false`                                              |
+| `PUBLIC_API_ENABLED`        | `false` turns off the REST API `/api/v1` for integrations: every request to it gets 503. The screens and the alert intake addresses under `/api/projects/...` keep working. The API description at `/api/docs` is open without signing in while the API is on; with `false` the page is gone and the "OpenAPI" menu entry disappears. More in [`rest-api.md`](rest-api.md). Applied on restart of `xagent-core` | `true` |
+| `NOTE_WRITER_ENABLED` | `true` enables the background writer; `false` stops new runs from starting | `false` |
+| `NOTE_WRITER_DAILY_RUNS` | How many writer runs one target may start in 24 hours. A whole number of at least 1; a run beyond the limit is recorded as skipped | `50` |
+| `NOTE_WRITER_MAX_PARALLEL_RUNS` | How many writer runs may execute at once across the deployment, separately from webhook investigations. A whole number of at least 1 | The value of `WEBHOOK_MAX_PARALLEL_RUNS` (`3` when unset) |
+| `AUDIT_LOG_ENABLED`         | `false` stops recording changes in the audit trail; looks at a secret or at another person's chat are recorded either way, and the trail screens say the trail is off. Applied on restart of `xagent-core` | `true` |
+| `AUDIT_LOG_NOTE_TEXT_ENABLED` | `true` records the text of an agent note before and after each change to it in the audit trail. Everyone who reads the project's trail sees that text, notes on databases closed to them included. Applied on restart of `xagent-core` | `false` |
 | `PG_DOCS_ARTIFACT_PATH`     | The path to the PostgreSQL documentation pack inside the container          | `/app/docs/postgresql-docs.json`                     |
 | `MCP_SERVERS_DIR`           | The directory holding the MCP servers inside the container                  | `/app/mcp-servers` (set in `docker-compose.yaml`)    |
 | `LANGFUSE_HOST`             | The Langfuse URL for tracing the agent's work                               | -                                                    |
 | `LANGFUSE_PUBLIC_KEY`       | The Langfuse public key                                                     | -                                                    |
 | `LANGFUSE_SECRET_KEY`       | The Langfuse secret key                                                     | -                                                    |
 | `LANGFUSE_DEBUG`            | Verbose trace output                                                        | `false`                                              |
+
+### Note writer (optional)
+
+The note writer keeps useful knowledge after a conversation goes quiet or a trouble record closes.
+It is off by default. When enabled, it takes only new sources that ended after it was enabled.
+Set the same `NOTE_WRITER_ENABLED` value on every `xagent-core` instance.
+Restart `xagent-core` after changing these settings.
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `NOTE_WRITER_ENABLED` | Enables the background note writer: `true` or `false` | `false` |
+| `NOTE_WRITER_DAILY_RUNS` | Maximum writer starts per target in the last 24 hours. A whole number of at least 1 | `50` |
+| `NOTE_WRITER_MAX_PARALLEL_RUNS` | Concurrent writer runs. A whole number of at least 1. These places are separate from alert investigations | `WEBHOOK_MAX_PARALLEL_RUNS`, normally `3` |
+
+
+An invalid value of any of these variables stops the service. The writer uses the project's model;
+there is no daily limit across the whole deployment. Token usage is shown in system status.
 
 ## Installer exit codes
 
@@ -418,7 +522,8 @@ Install Docker following the [instructions](https://docs.docker.com/engine/insta
 ✖ Port 8080 is occupied
 ```
 
-Free the port or choose another one during installation. To see what is holding the port:
+Free the port or choose another one during installation. The port is published by the `proxy` service. To
+see what is holding the port:
 
 ```bash
 ss -tlnp | grep 8080
@@ -469,13 +574,15 @@ The `update` command will not help here - there is nothing to update yet.
 
 The ZIP was damaged in transit. Download it again and check `SHA256SUMS`.
 
-### The container will not start
+### The containers will not start
 
-Check the logs:
+XAgent runs as two containers: `xagent-core` (the backend: database, models, schedules) and
+`xagent-web` (the web interface). The web interface starts once the backend reports healthy. Check the
+logs of both:
 
 ```bash
 cd /opt/xagent
-docker compose logs xagent
+docker compose logs xagent-core xagent-web
 ```
 
 Common causes:
@@ -490,38 +597,35 @@ Sign-in is temporarily unavailable: your credentials could not be checked. This 
 ```
 
 The web server could not get an answer from the core, so the password was never checked. The cause is in
-the logs (`docker compose logs xagent`), on a line starting with `[auth]`. The ending
-`the shell and Core do not share the same CORE_SECRET` means the two halves of the agent hold different
+the web server's logs (`docker compose logs xagent-web`), on a line starting with `[auth]`. The ending
+`the shell and Core do not share the same CORE_SECRET` means the two containers hold different
 `CORE_SECRET` values: check that `.env` sets `CORE_SECRET` once, with a non-empty value, and apply it with
 `docker compose up -d`.
 The first-run form reports the same cause with the message
 `Setup could not be completed: the service refused the request before reading it`.
 
-### The container is marked `unhealthy`
+### A container is marked `unhealthy`
 
-`docker compose ps` shows `xagent` as `unhealthy`. That means one of the agent's two halves - the core
-(port 3001 inside the container) or the web server (port 8080) - has stopped answering, while its
-process is still alive.
+`docker compose ps` shows `xagent-core` or `xagent-web` as `unhealthy`. That means the backend or the
+web server has stopped answering, while its process is still alive.
 
-See which one it is and with what error:
+See the error of the container it names:
 
 ```bash
 cd /opt/xagent
-docker inspect --format '{{range .State.Health.Log}}{{.End}} exit={{.ExitCode}} {{.Output}}{{end}}' xagent-xagent-1
+docker inspect --format '{{range .State.Health.Log}}{{.End}} exit={{.ExitCode}} {{.Output}}{{end}}' xagent-xagent-core-1
+docker inspect --format '{{range .State.Health.Log}}{{.End}} exit={{.ExitCode}} {{.Output}}{{end}}' xagent-xagent-web-1
 ```
 
-A line like `core did not answer at http://127.0.0.1:3001/...` points at the core, a line
-`web server did not answer at http://127.0.0.1:8080/...` points at the web server.
-
-Then restart the service:
+Then restart that service, for example:
 
 ```bash
-docker compose restart xagent
+docker compose restart xagent-core
 ```
 
-If a half of the agent has not merely gone quiet but exited, the container stops on its own and comes
-back up under the restart policy - no intervention needed. The restart counter:
+A container whose process has not merely gone quiet but exited comes back up on its own under the
+restart policy - no intervention needed. The restart counter:
 
 ```bash
-docker inspect --format '{{.RestartCount}}' xagent-xagent-1
+docker inspect --format '{{.RestartCount}}' xagent-xagent-core-1
 ```

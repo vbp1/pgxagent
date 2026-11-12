@@ -11,4 +11,5 @@
 | [`targets.md`](targets.md)                                                                 | Добавление баз, за которыми следит XAgent                            |
 | [`rbac.md`](rbac.md)                                                                       | Роли, доступ к серверам, видимость переписок и выдача инструментов   |
 | [`webhooks.md`](webhooks.md)                                                               | Приём алертов из внешней системы мониторинга                         |
+| [`rest-api.md`](rest-api.md)                                                               | REST API для интеграций: где описание, как получить ключ             |
 | [`example-playbook-proactive-health-check.md`](example-playbook-proactive-health-check.md) | Разобранный плейбук - образец, с которого можно копировать           |

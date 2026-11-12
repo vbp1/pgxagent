@@ -120,6 +120,7 @@ The agent matches alerts to targets by host name. By default it uses the `instan
 **Configuring the hostname label:**
 
 - If your alerts use a different label (for example, `host`, `node`, `server`), change the **Hostname Label** field in the webhook configuration
+- A configuration reads the machine name from one label. If your monitor puts the machine name in different labels for different alerts, create one configuration per label, each with its own token and URL, and split the alerts with AlertManager routes on that label. For an example, see "AlertManager inside Vision (Skala-R)" below
 
 **Configuring the port label:**
 
@@ -133,6 +134,62 @@ The agent matches alerts to targets by host name. By default it uses the `instan
 **Make sure the target has a machine name:**
 
 Matching uses the host name saved on the target (the **Machine Name** field), not a query to the database. It is set by hand when the target is created or edited - use the same name that arrives in the alert label (see the "Machine Name" section in quick-start.md).
+
+### AlertManager inside Vision (Skala-R)
+
+Vision (checked on version 1.12.1) builds its AlertManager configuration itself and overwrites hand edits to `alertmanager.yml`. The route to the agent is set through the Vision API: a receiver and a receiver group with the conditions that select alerts. Vision builds an AlertManager route from each group.
+
+**Labels carrying the machine name.** Vision's host alerts (disk space, memory, CPU) carry the name of the server object in the `_node_id` label; its PostgreSQL alerts (rules on `spectrum_*` metrics) carry it in `node_name`. The `instance` label in them holds the exporter address (for example, `127.0.0.1:9101`) and is no use for matching. So you need two webhook configurations:
+
+| Configuration     | Hostname Label | Alerts          |
+| ----------------- | -------------- | --------------- |
+| `vision_node`     | `_node_id`     | host alerts     |
+| `vision_postgres` | `node_name`    | PostgreSQL      |
+
+**Receiver.** For a webhook receiver Vision validates only the address and passes the other `config` fields to AlertManager as they are. So the header with the agent token goes into the same `config`:
+
+```bash
+curl -k -X POST "https://<Vision address>/vision/api/v1/receiver/" \
+  -H "Authorization: Bearer <Vision token>" -H 'Content-Type: application/json' \
+  -d '{
+    "title": "xagent-node",
+    "type": "webhook",
+    "config": {
+      "url": "https://your-xagent.example.com/api/projects/PROJECT_ID/webhooks/CONFIG_ID/alerts",
+      "send_resolved": true,
+      "http_config": { "authorization": { "type": "Bearer", "credentials": "xagent_wh_your_token_here" } }
+    }
+  }'
+```
+
+The response carries the receiver `id`.
+
+**Group.** A group's conditions are joined by "and"; several values of one condition are joined by "or":
+
+```bash
+curl -k -X POST "https://<Vision address>/vision/api/v1/receiver/group" \
+  -H "Authorization: Bearer <Vision token>" -H 'Content-Type: application/json' \
+  -d '{
+    "title": "xagent-node",
+    "desc": "Host alerts of the watched PostgreSQL nodes",
+    "receivers": [RECEIVER_ID],
+    "matchers": [
+      { "name": "_node_id", "equal": true, "values": ["db-node-1", "db-node-2", "db-node-3"] },
+      { "name": "alertname", "equal": true, "values": ["NodeFilesystemSizeWarning", "NodeFilesystemSizeCritical"] }
+    ]
+  }'
+```
+
+For `vision_postgres`, create a second receiver-and-group pair with the `node_name` label and its own list of rules. Once a group is saved, Vision rebuilds `alertmanager.yml` and reloads AlertManager: the configuration gains a `group-<group id>` route with your conditions.
+
+**Which rules to send.** Many of Vision's built-in rules are ones the agent can do nothing about: hardware, SMART, network, SNMP. Set the `alertname` list explicitly. An example set for PostgreSQL nodes:
+
+| Group      | Rules |
+| ---------- | ----- |
+| PostgreSQL | `TimeLongQueryWarning`, `TimeLongQueryCritical`, `LongRunningQueryCountWarning`, `LongRunningQueryCountCritical`, `PostgreSQLSessionsCountWarning`, `PostgreSQLSessionsCountCritical`, `PGUsedConnectionsWarning`, `PGUsedConnectionsCritical`, `ReplicationLagWarning`, `ReplicationLagCritical`, `NonActiveReplicationSlots`, `UsedTempOver50GB`, `UsedTempOver100GB`, `SpectrumHighAutovacuumProcCount`, `SpectrumCriticalAutovacuumProcCount` |
+| Host       | `NodeFilesystemSizeWarning`, `NodeFilesystemSizeCritical`, `RootFilesystemSizeWarning`, `RootFilesystemSizeCritical`, `NodeDiskWillFillIn24Hours`, `NodeOutOfInodes`, `NodeInodesWillFillIn24Hours`, `NodeOutOfMemoryWarning`, `NodeOutOfMemory`, `NodeOutOfMemory95`, `NodeOomKillDetected`, `NodeSwapIsFillingUp`, `NodeMemoryUnderMemoryPressure`, `NodeHighCpuLoad90`, `NodeCpuHighIowait`, `NodeUnusualDiskReadLatency`, `NodeUnusualDiskWriteLatency`, `NodeUnusualDiskIo` |
+
+Before the first alert, check that the Vision server can reach the XAgent address over the network, and check the machine names with the request from "Test hostname matching". Alerts that are already firing arrive as soon as the groups are saved, and each one starts an investigation.
 
 ## API reference
 
@@ -315,6 +372,7 @@ The agent limits how many investigations run at once, so as not to overload the 
 - By default: 3 investigations at a time; set by the `WEBHOOK_MAX_PARALLEL_RUNS` environment variable
 - The limit counts across the whole installation, however many copies of the service are running
 - The remaining alerts wait in the queue and are handled in the order they arrived
+- Investigations of one node run one after another: an alert about a node where another problem is being investigated waits for that investigation to finish, at most `WEBHOOK_NODE_WAIT_MINUTES` minutes (30 by default), and its card says what it is waiting for. Alerts about different nodes are investigated at the same time
 
 ## Troubleshooting
 

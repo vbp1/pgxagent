@@ -120,6 +120,7 @@ route:
 **Настройка лейбла hostname:**
 
 - Если алерты используют другой лейбл (например, `host`, `node`, `server`), измените поле **Hostname Label** в конфигурации вебхука
+- Конфигурация читает имя машины из одного лейбла. Если монитор кладёт имя машины в разные лейблы для разных алертов, заведите по конфигурации на каждый лейбл, у каждой свой токен и свой URL, и разведите алерты маршрутами AlertManager по этому лейблу. Пример - раздел «AlertManager в составе Vision (Скала-Р)» ниже
 
 **Настройка лейбла порта:**
 
@@ -133,6 +134,62 @@ route:
 **Убедитесь, что у сервера задано имя хоста (Machine Name):**
 
 Сопоставление идёт по имени хоста, сохранённому у сервера (поле **Machine Name**), а не по запросу к базе. Его задают вручную при создании или редактировании сервера - укажите то же имя, которое приходит в лейбле алерта (см. раздел «Имя машины (Machine Name)» в quick-start.md).
+
+### AlertManager в составе Vision (Скала-Р)
+
+Vision (проверено на версии 1.12.1) собирает конфигурацию своего AlertManager сам и перезаписывает ручные правки `alertmanager.yml`. Маршрут к агенту задаётся через API Vision: получатель (receiver) и группа получателей с условиями отбора алертов. Из каждой группы Vision строит маршрут AlertManager.
+
+**Лейблы с именем машины.** Алерты Vision по серверу (место на диске, память, CPU) несут имя объекта-сервера в лейбле `_node_id`, алерты по PostgreSQL (правила на метриках `spectrum_*`) - в лейбле `node_name`. Лейбл `instance` в них содержит адрес экспортёра (например, `127.0.0.1:9101`) и для сопоставления не подходит. Поэтому нужны две конфигурации вебхука:
+
+| Конфигурация      | Hostname Label | Алерты         |
+| ----------------- | -------------- | -------------- |
+| `vision_node`     | `_node_id`     | по серверу     |
+| `vision_postgres` | `node_name`    | по PostgreSQL  |
+
+**Получатель.** Для webhook-получателя Vision проверяет только адрес, а остальные поля `config` передаёт в AlertManager как есть. Поэтому заголовок с токеном агента кладётся в тот же `config`:
+
+```bash
+curl -k -X POST "https://<адрес Vision>/vision/api/v1/receiver/" \
+  -H "Authorization: Bearer <токен Vision>" -H 'Content-Type: application/json' \
+  -d '{
+    "title": "xagent-node",
+    "type": "webhook",
+    "config": {
+      "url": "https://your-xagent.example.com/api/projects/PROJECT_ID/webhooks/CONFIG_ID/alerts",
+      "send_resolved": true,
+      "http_config": { "authorization": { "type": "Bearer", "credentials": "xagent_wh_your_token_here" } }
+    }
+  }'
+```
+
+В ответе - `id` получателя.
+
+**Группа.** Условия группы объединяются по «и», несколько значений одного условия - по «или»:
+
+```bash
+curl -k -X POST "https://<адрес Vision>/vision/api/v1/receiver/group" \
+  -H "Authorization: Bearer <токен Vision>" -H 'Content-Type: application/json' \
+  -d '{
+    "title": "xagent-node",
+    "desc": "Host alerts of the watched PostgreSQL nodes",
+    "receivers": [RECEIVER_ID],
+    "matchers": [
+      { "name": "_node_id", "equal": true, "values": ["db-node-1", "db-node-2", "db-node-3"] },
+      { "name": "alertname", "equal": true, "values": ["NodeFilesystemSizeWarning", "NodeFilesystemSizeCritical"] }
+    ]
+  }'
+```
+
+Для `vision_postgres` - вторая пара «получатель + группа» с лейблом `node_name` и своим списком правил. После сохранения группы Vision пересобирает `alertmanager.yml` и перезагружает AlertManager: в конфигурации появляется маршрут `group-<id группы>` с вашими условиями.
+
+**Какие правила отправлять.** Среди встроенных правил Vision много таких, по которым агенту нечего делать: железо, SMART, сеть, SNMP. Задайте список `alertname` явно. Пример набора для узлов PostgreSQL:
+
+| Группа     | Правила |
+| ---------- | ------- |
+| PostgreSQL | `TimeLongQueryWarning`, `TimeLongQueryCritical`, `LongRunningQueryCountWarning`, `LongRunningQueryCountCritical`, `PostgreSQLSessionsCountWarning`, `PostgreSQLSessionsCountCritical`, `PGUsedConnectionsWarning`, `PGUsedConnectionsCritical`, `ReplicationLagWarning`, `ReplicationLagCritical`, `NonActiveReplicationSlots`, `UsedTempOver50GB`, `UsedTempOver100GB`, `SpectrumHighAutovacuumProcCount`, `SpectrumCriticalAutovacuumProcCount` |
+| Сервер     | `NodeFilesystemSizeWarning`, `NodeFilesystemSizeCritical`, `RootFilesystemSizeWarning`, `RootFilesystemSizeCritical`, `NodeDiskWillFillIn24Hours`, `NodeOutOfInodes`, `NodeInodesWillFillIn24Hours`, `NodeOutOfMemoryWarning`, `NodeOutOfMemory`, `NodeOutOfMemory95`, `NodeOomKillDetected`, `NodeSwapIsFillingUp`, `NodeMemoryUnderMemoryPressure`, `NodeHighCpuLoad90`, `NodeCpuHighIowait`, `NodeUnusualDiskReadLatency`, `NodeUnusualDiskWriteLatency`, `NodeUnusualDiskIo` |
+
+Перед первым алертом проверьте, что сервер Vision достаёт до адреса XAgent по сети, и сверьте имена машин запросом из раздела «Тест сопоставления hostname». Алерты, которые уже горят, придут сразу после сохранения групп, и по каждому начнётся расследование.
 
 ## Справочник API
 
@@ -315,6 +372,7 @@ Resolved-алерт закрывает запись. Новое расследо
 - По умолчанию: 3 расследования одновременно; задаётся переменной окружения `WEBHOOK_MAX_PARALLEL_RUNS`
 - Предел считается на всю установку, сколько бы копий сервиса ни было запущено
 - Остальные алерты ожидают в очереди и разбираются в порядке поступления
+- Разборы одного узла идут по очереди: алерт об узле, где уже разбирается другая проблема, ждёт конца этого разбора, но не дольше `WEBHOOK_NODE_WAIT_MINUTES` минут (по умолчанию 30), а его карточка говорит, чего он ждёт. Алерты о разных узлах разбираются одновременно
 
 ## Диагностика проблем
 

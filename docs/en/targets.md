@@ -57,7 +57,7 @@ Templates support **one** placeholder, `{{hostname}}`, which expands to the node
 | `logsStreamSelectorTemplate` (**Logs stream selector**)      | The log stream (LogsQL)                                                                                                                         | `hostname:{{hostname}} AND app_name:postgresql`                |
 | `metricsClusterSelectorTemplate` (**Cluster-level selector**) | The cluster-level label for metrics (clusters only). Saved for the future: cluster-level metric queries are not driven by it yet                | `cluster_name="{{hostname}}"`                                  |
 
-Per-prefix rules let different metric families use different labels. When a query is built, the rule with the **longest matching prefix** wins; if none matches, the base node template is used.
+Per-prefix rules let different metric families use different labels. When a query is built, the rule with the **longest matching prefix** wins; if none matches, the base node template is used. Metric search by name is built from the rules only, so every metric family the agent should find needs a rule of its own (see [known-issues.md](known-issues.md#metric-search-sees-only-the-families-that-have-a-rule-of-their-own)).
 
 ### Selector Presets
 

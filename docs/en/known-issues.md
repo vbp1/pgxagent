@@ -10,6 +10,16 @@ If you set `OLLAMA_HEADERS` in `.env`, the service does not start: the value is 
 
 **What to do:** leave this variable unset. Extra HTTP headers for Ollama cannot be configured in the current version; if Ollama requires an authorisation header, put a reverse proxy in front of it that adds the header.
 
+## Metrics and logs
+
+
+
+### Metric search sees only the families that have a rule of their own
+
+A metric query takes the rule with the longest matching prefix and, if none matches, the base node template. Metric search by name is built from the rules only: metrics labelled by the base template alone are not found, although they can be queried by name. The built-in **Spectrum** preset holds only the `node_` rule, so on a target with that preset the search does not find `spectrum_*` metrics.
+
+**What to do:** add a rule for every metric family the agent should find. For Spectrum and Vision, that is the rule `spectrum_` → `node_name="{{hostname}}"`.
+
 ## Scheduled monitoring
 
 ### A new interval saved during a run applies from the run after next
@@ -22,7 +32,7 @@ A run plans the next due time from the settings it started with. If you change t
 
 If the service refuses to delete a schedule, the settings screen stays as it was, with the delete confirmation still open, and says nothing about the refusal.
 
-**What to do:** if pressing delete does not take you back to the list of schedules, reload the page, check whether the schedule is still there, and look at `docker compose logs xagent` for the reason.
+**What to do:** if pressing delete does not take you back to the list of schedules, reload the page, check whether the schedule is still there, and look at `docker compose logs xagent-core` for the reason.
 
 ### A long run is ended before it finishes
 
@@ -50,20 +60,8 @@ In an SQL chat that has no schema chosen yet, the agent first picks the schema t
 
 **What to do:** the bar after your own **Stop** can be ignored; ask the question again when you are ready.
 
-### A failed read of the target list shows an empty list
-
-If the **Targets** page cannot read the list of databases, it shows no rows and zeros on the summary tiles, with no message about the failure.
-
-**What to do:** if the list is suddenly empty, reload the page; if it stays empty, look at `docker compose logs xagent`.
-
 ### The target creation window locks when the check after creation fails
 
 Adding a standalone database takes three steps in one window: create the record, check the connection, collect facts about the database. If the service does not answer the connection check (for example, the network dropped or the session expired), the window stays in its busy state and cannot be closed. The database record is already created at that point.
 
 **What to do:** reload the page. The new database is in the **Targets** list with its connection status.
-
-### Times on screen use the browser's time zone
-
-The time zone chosen in the user menu reaches the agent: it uses that zone for times in its answers. Dates and times on the pages themselves - the last check of a target, the last and next run of a schedule, and so on - are shown in the browser's time zone.
-
-**What to do:** keep the time zone in the user menu the same as the browser's, or read the times on the pages as the browser's local time.

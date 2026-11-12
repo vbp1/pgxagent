@@ -4,7 +4,7 @@ Once XAgent is installed and running, set it up with the steps below.
 
 ## 1. Create a project
 
-1. Open the web interface: `http://<host>:<port>` (port `8080` by default) and sign in. On the first open, create the superadmin account - see [First sign-in](install-guide.md#5-first-sign-in)
+1. Open the web interface: `https://<host>:<port>` (port `8080` by default) and sign in. On the first open, create the superadmin account - see [First sign-in](install-guide.md#5-first-sign-in)
 2. With no projects yet, the page shows the project form right away; later, click **Create Project** above the project list
 3. Fill in:
    - **Create a new project** (**Project Name** in the later form) - any name you like (for example, `production`)
@@ -97,6 +97,14 @@ To match a target with its logs (VictoriaLogs), metrics (VictoriaMetrics) and al
 
 > Besides a single database you can add a **cluster** (Generic or Patroni). For more on the target model, see [targets.md](targets.md).
 
+For the agent to read the target's metrics and logs:
+
+1. Set the **Machine Name** (see above) and switch on **Enable Metrics Access** and **Enable Log Access** in the target form.
+2. Switch on the MCP servers `victoriametrics` and `victorialogs` in the **MCP** section of the side menu. They are off after installation.
+3. Switch them on in the project: **Settings → Roles**, the **Project tools (MCP)** card.
+
+Without steps 2 and 3 the agent gets a refusal on its very first call to metrics or logs.
+
 ## 4. Set up monitoring (optional)
 
 Go to **Monitoring** → **Add Schedule**.
@@ -112,7 +120,7 @@ Schedule settings:
 | **Time Range**         | How far back logs and metrics are analysed (`15m`, `1h`, `6h`, `24h`, `7d`, `30d`)                                                                               |
 | **Notification Level** | Notification level: `info`, `warning`, `alert`                                                                                                                   |
 
-Problems the agent finds become **incident records** in the **Alerts** section. A record is opened once and closed once - a later run that finds the same problem appends a confirmation to the existing record instead of opening a new one. A record is always closed with a stated reason: the problem is gone, the level dropped below the notification threshold, a person closed the record, the source was deleted (schedule, target or webhook), or the investigation never reached a conclusion. If Slack is configured for the project (the **Notifications** section), opening and closing a record is posted to the channel.
+Problems the agent finds become **incident records** in the **Alerts** section. A record is opened once and closed once - a later run that finds the same problem appends a confirmation to the existing record instead of opening a new one. A record is always closed with a stated reason: the problem is gone, the level dropped below the notification threshold, a person closed the record, the source was deleted (schedule, target or webhook), or the investigation never reached a conclusion. Channels enabled under **Notifications** receive messages when a record opens and closes.
 
 ### Run a playbook by hand
 
@@ -135,14 +143,17 @@ The agent works through every step of the playbook and shows the result.
 
 An example playbook: [example-playbook-proactive-health-check.md](example-playbook-proactive-health-check.md)
 
-## 5. Slack notifications (optional)
+## 5. Notifications (optional)
 
-Go to **Notifications** (project side menu).
+Open **Notifications** in the project side menu. Email, Mattermost and Slack are available.
 
-1. Create an Incoming Webhook in Slack for the channel you want
-2. Paste its URL into the field on the page and save
+1. Enable the channel on its card.
+2. For Email, enter the server, port, connection security, sender and recipients. Enter credentials if the server requires authentication.
+3. For Mattermost or Slack, enter the incoming webhook URL.
+4. Save the settings and select **Send test**.
+5. Check the last delivery result on the card.
 
-From then on the agent posts to the channel when it opens and when it closes an incident record. The link in the message opens the record in the **Alerts** section.
+The incident timeline shows delivery results per channel. A failed delivery includes its cause.
 
 ## 6. Set up webhooks (optional)
 
@@ -168,6 +179,15 @@ Only one changing command runs on a target at a time.
 
 **Long reads.** A heavy query that does not fit the usual time limit (a count over a large table, a report over the whole history) is proposed by the agent through the same approval card. Such a query holds a data snapshot open, so the database cannot clean up old versions of rows that changed - on a busy table that means visible growth of the table and its indexes, and the card warns about it. Long reads are available when the target has **Enable SQL Mode** turned on and the person has the right to run queries (the **operator** or **owner** role). The **Enable SQL Mode** switch itself stays greyed out until `SQL_MODE=true` is set in `.env`. The number of concurrent long reads per target and their time limit are set by the `LONG_READ_MAX_PER_TARGET` (3 by default) and `LONG_READ_TIME_LIMIT_SECS` (4 hours by default) environment variables, and `LONG_READ_DISABLED=true` removes the feature entirely.
 
+## Notes and project settings
+
+The target's **Notes** tab holds shared notes. **My Notes** in the project holds your personal notes.
+Select a note to read it in full and see its source. Available actions depend on your rights.
+When the shared sheet is full, delete an unneeded note or ask the agent to choose one to archive. Then add the new note.
+
+In **Settings → General**, choose the agent language and add project instructions.
+The interface stays in English. The background note writer is off by default. Its settings are in the [installation guide](install-guide.md).
+
 ## Check that it works
 
 Once everything is set up, make sure it works:
@@ -181,7 +201,7 @@ Once everything is set up, make sure it works:
 - **PostgreSQL reference inside the installation** - the image ships with the official PostgreSQL 14-18 documentation. The agent searches it and quotes pages, answering for the version that runs on your server. If the server version is not known yet, the agent asks for it instead of answering for a different one.
 - **Clusters** - Patroni and clusters built on other replication software: node roles, replica lag, settings that differ between nodes. See [targets.md](targets.md).
 - **Memory per target** - the agent keeps notes about the project and its databases and searches past chats and monitoring runs for that target, so a new session does not start from a blank page.
-- **Incident records and Slack notifications** - the **Alerts** section, and messages to the channel when a record is opened and closed.
+- **Incident records and notifications** — the **Alerts** section and messages through enabled channels when a record opens and closes.
 - **Commands with human approval** - when the switch is explicitly turned on (see section 7 above).
 - **Working together in a chat** - several people from the project can take part in one chat; messages are handled one after another, and you can see who is in the chat right now.
 - **The answer is produced on the server** - generation is not tied to the tab: you can close or reload the page and come back to the full answer. An answer being written right now shows on every open of the chat, from another device too. A dropped connection is restored, and what was missed is caught up from history.
@@ -191,7 +211,7 @@ Once everything is set up, make sure it works:
 - **Changes only with human approval** - the agent never changes the database on its own: it analyses and proposes. It can propose a changing command only if the target has the **Allow changes** switch turned on, and the command runs only after a person clicks. Everything else (restarting services, editing `postgresql.conf`, actions at the OS level) is done by hand.
 - **Vanilla PostgreSQL only** - the agent does not know about forks (Postgres Pro, Tantor and others). All recommendations and analysis are based on what standard PostgreSQL offers.
 - **No backup strategy analysis** - the agent sees the state of WAL archiving, but it does not review backup schemes (pg_basebackup, pgBackRest, WAL-G) or judge whether they fit.
-- **No notification providers other than Slack** - there is no built-in delivery to Telegram, email or Mattermost.
+- **No built-in Telegram delivery.** Email, Mattermost and Slack are available.
 - **No ticketing integration** - the agent cannot create tasks in Jira or other ticketing systems. Problems it finds have to be filed by hand.
 - **Only the documentation pages shipped in the image** - PostgreSQL versions outside 14-18 and external sources (articles, extension documentation, forks) are not available to the agent.
 

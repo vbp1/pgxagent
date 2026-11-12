@@ -1,5 +1,53 @@
 # What's new
 
+## Version 0.7.0
+
+Version 0.7.0 adds email and Mattermost notifications, a REST API for integrations, note management and summaries for long conversations.
+
+### Work with the agent
+
+- **Long conversations continue with a summary.** Near the model context limit, the agent summarizes earlier history. The full conversation stays available to people. Older messages load on request.
+- **Manage notes on screen.** The target's **Notes** tab shows shared notes. **My Notes** shows personal notes. Available actions depend on membership rights. The agent can archive notes from the shared sheet. A full sheet requires space before another note can be added.
+- **A background note writer collects experience.** It is off by default. When enabled, it reads completed sources and writes to a separate target sheet. The working agent checks these leads against current data.
+- **Recommendations use measurements.** The agent sees configuration changes that are not in effect yet. It can compare a query plan with and without a temporary setting. Proposed command cards show expected locks.
+
+### Monitoring, notifications and integrations
+
+- **Three notification channels:** Email, Mattermost and Slack. Each has its own settings, switch, test send and last delivery result. The incident timeline shows delivery results per channel.
+- **Metric and log source health is visible.** Source failures and recovery trigger notifications. A disabled tool prevents enabling its access on a target.
+- **The REST API `/api/v1` uses service accounts.** It manages projects, targets, schedules, webhooks and notification channels, and reads chats and incidents. **OpenAPI** opens its description. Installation administrators issue keys.
+- **More project settings.** Set project instructions, agent language, long-read limits and retention for closed incidents. The audit log shows settings before and after changes.
+- **Compact lists.** Overview pages show summaries. Detailed lists have separate pages and pagination. Incidents group by target. Search includes text from their timelines.
+- **Fixes:** on-screen times use the selected user time zone. Metric lists respect their limit through Vision. Navigation, MCP read errors and connection saves are corrected.
+
+### Installation layout
+
+- **Core and the web server ship as two images.** Updates use a matching Core/Web pair of the same version.
+- **The front door uses HTTPS.** The proxy supports HTTP/2. You can supply your own certificate. After an upgrade, check the public URL and certificate trust.
+
+### Agent notes and conclusions
+
+- **The note writer leaves a trace.** With `NOTE_WRITER_ENABLED=true`, a processed conversation shows the writer’s model, outcome and time. A closed alert gets a `note_writer` timeline entry. Open the trajectory to see the sources read, tool calls and decisions to write, merge, evict or refuse a note. These entries do not enter the model’s chat history or move the conversation up the list. The outcome stays after the source and trajectory are removed after 90 days. Run content is hidden when any recorded read source is private or unavailable. Older runs without a recorded source list show why their content is unavailable.
+
+- **The agent's language is a setting.** The installation sets it with `AGENT_LANGUAGE`, and a project may choose its own on the **General** tab of its settings (Agent block). The agent writes everything for people in it: chat answers, chat titles, notes, incident records, run reports, documents and drafted playbooks. A change applies from the next answer or run and is recorded in the audit log. Asking in a chat ("answer in Russian") switches that chat's answers only. The interface itself stays in English.
+- **Agent notes are written on a person's word.** The conversational agent writes a shared or personal note only in a chat, when a person asks it to remember something or states a decision. Scheduled checks, alert investigations and manual playbook runs read the notes and write none. Every note has a title of up to 120 characters and may have a "valid until" date; a note past its date is named as expired and is not followed. Every chat turn and every run that has the notes tools carries, at the end of its instructions, the list of the notes it may read, with titles, dates and deadlines. A database's sheet holds up to 40 notes, a person's own sheet up to 10. A new note whose title is close to an existing one is refused with that note named. The agent writes a note in the project's language.
+- **A scheduled check confirms trouble that is already recorded.** A check sees every open incident record of its database — an alert investigation's finding, a monitoring alert, another check's record — and when it finds the same problem, it adds a line to that record's history instead of opening a second one. A finding the check measures gone is closed; a monitoring alert or another check's record only gets the line, and its own source closes it. A finding the check made worse is announced the way the finding's own alerts are, by its receiver's level; a closed finding is announced to the channels that heard of it. An open record on the database with a time later than the database clock stops every scheduled check of that database before it runs, and the check's history names the record.
+- **A verdict on an earlier trouble record rests on this conversation's reading.** Asked in a chat about earlier open records — in the system or named in the question — the agent calls a record confirmed or resolved only from what it read on that record's object in this conversation. When the object is absent (no replicas, say) or the record does not name it, the verdict is "not checked this time"; the agent advises closing a resolved record, a repeat of another open record or a false alarm, naming why, and leaves the rest to the person, a minor confirmed trouble included. A record named in the question that the system does not hold is called so.
+- **One finding is named the cause of another only on data.** In a chat, in a run's report and in its summary the agent describes findings one by one and names one the cause of another only when data gathered in that work shows it; otherwise the link is called possible and not verified, and the answer or the report builds no severity on it. A fix its own measurements justify — an index no query reads, a setting out of range — is still advised on those measurements.
+
+### What to watch for when upgrading
+
+- **Set `AGENT_LANGUAGE`.** It takes exactly `ru` or `en`; any other value stops the service at startup and names the setting. The update adds it to `.env` commented out: until you set it, the agent goes on writing in the language your `SYSTEM_PROMPT_ADD` names. Once it is set, remove the language phrase from `SYSTEM_PROMPT_ADD`, and choose a project's language in its settings where it has to differ.
+- **Rolling back to the previous version.** The previous version does not read `AGENT_LANGUAGE` or the project's language: put the language phrase back into `SYSTEM_PROMPT_ADD` before rolling back.
+- **Every agent note is deleted by the update.** The update removes the notes of every project, rules that people dictated included, and the new version cannot bring them back. Before updating, run in the installation directory the command that saves them to `agent-notes.csv` (the project, the database, the sheet, the owner of a personal note, the section, the text and the date):
+
+  ```bash
+  docker compose exec -T postgres psql -U dbagent -d dbagent -c "COPY (SELECT p.name AS project, t.name AS target, n.scope, n.owner_user_id, n.section, n.body, n.created_at FROM agent_notes n JOIN projects p ON p.id = n.project_id LEFT JOIN targets t ON t.id = n.target_id ORDER BY p.name, t.name, n.scope, n.created_at) TO STDOUT WITH CSV HEADER" > agent-notes.csv
+  ```
+
+  `POSTGRES_USER` and `POSTGRES_DB` in `.env` replace `dbagent` where you changed them. After the update, ask the agent in a chat to remember what still matters. The deletion is recorded in the audit trail of each project that had notes, also when `AUDIT_LOG_ENABLED` is `false`. The working memory that older versions kept for the agent in the same database is emptied too.
+- **Update with a full backup.** Run `xagent-installer update --backup full` (see [install-guide.md](install-guide.md#backup-and-rollback)). The way back is `xagent-installer rollback` from that backup: the previous version cannot write notes into the upgraded table, so a rollback without the data from the backup leaves it without notes.
+
 ## Version 0.6.1
 
 A maintenance release: bug fixes and tighter access rules.

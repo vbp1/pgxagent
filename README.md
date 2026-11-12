@@ -49,8 +49,9 @@ The same walk without sound, in short:
   model through Ollama or vLLM
 - Team access: four built-in roles, per-database grants, chats that stay private when you say so, and a
   project activity log
-- Slack notifications when an incident record opens and closes
+- Email, Mattermost and Slack notifications, with delivery results per channel
 - On-premise deployment, including a closed network with no internet access
+- REST API for integrations through service accounts and access keys
 - Experimental SQL mode: natural language queries to your data
 - Extensible via MCP servers
 
@@ -68,7 +69,7 @@ on-premise team needs to run it for real:
 - **Commands with human approval.** The agent proposes one command, shows the risk, and a person
   allows or declines it in the chat. Off by default, enabled per database.
 - **Incident records instead of a message stream.** A problem is opened once, confirmed while it
-  lasts and closed with a reason; Slack hears about it three times, not on every run.
+  lasts and closed with a reason. Enabled channels receive notifications about changes to the record.
 - **Clusters.** Patroni and other replication setups: node roles, replica lag, settings that differ
   between nodes, any member as a switchover point.
 - **Team access.** Four roles, per-database grants, private chats, a project activity log.

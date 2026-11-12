@@ -3,8 +3,8 @@
 Version 1.0, 6 September 2026
 
 This license covers XAgent as published by Vadim Ponomarev (the "Licensor") through the
-`vbp1/pgxagent` repository on GitHub and the `vbp1/xagent` repository on Docker Hub, including the
-installer archives and the container images (the "Software").
+`vbp1/pgxagent` repository on GitHub and the `vbp1/xagent`, `vbp1/xagent-core` and `vbp1/xagent-web`
+repositories on Docker Hub, including the installer archives and the container images (the "Software").
 
 ## 1. What you may do
 

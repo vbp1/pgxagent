@@ -11,4 +11,5 @@ The same guides in Russian are in [`../ru`](../ru).
 | [`targets.md`](targets.md)                                                                 | Adding the databases XAgent watches                         |
 | [`rbac.md`](rbac.md)                                                                       | Roles, target access, chat visibility and tool grants       |
 | [`webhooks.md`](webhooks.md)                                                               | Receiving alerts from an external monitoring system         |
+| [`rest-api.md`](rest-api.md)                                                               | REST API for integrations: where its description is, keys   |
 | [`example-playbook-proactive-health-check.md`](example-playbook-proactive-health-check.md) | A worked playbook, as an example to copy                    |
