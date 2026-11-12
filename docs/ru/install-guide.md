@@ -15,44 +15,53 @@
 
 **Варианты подключения LLM**:
 
-- **Облачный API** - требуется доступ в интернет к API-провайдеру (DeepSeek, Polza.AI, BotHub и др.). Подробнее в разделе [Подготовка LLM-провайдера](#подготовка-llm-провайдера).
+- **Облачный API** - требуется доступ в интернет к API-провайдеру (DeepSeek, BotHub, VseLLM и др.). Подробнее в разделе [Подготовка LLM-провайдера](#подготовка-llm-провайдера).
 - **Локальный LLM** - доступ в интернет не требуется. Используйте Ollama, vLLM или любой OpenAI-совместимый сервер в локальной сети.
 
 > XAgent не устанавливает Docker. Если Docker не установлен, поставьте его по инструкции вашего дистрибутива Linux.
 
 ## Подготовка LLM-провайдера
 
-Агенту нужна LLM. Подготовьте один из вариантов **до начала установки**:
+До установки выберите модель и площадку, получите адрес API и ключ доступа.
 
-### Рекомендованный вариант: DeepSeek V4 Pro
+### Рекомендованный вариант: DeepSeek V4.1 Flash
 
 - API: `https://api.deepseek.com`
-- Модель: `OPENAI_MODEL=deepseek-v4-pro`
-- Тип провайдера в инсталляторе: **OpenAI-compatible** (`OPENAI_API_TYPE=compatible`)
+- Модель: `OPENAI_MODEL=deepseek-flash`
+- Тип в установщике: **OpenAI-compatible** (`OPENAI_API_TYPE=compatible`)
 
-### Проверенные модели
+На этом сочетании проверены запрос к базе и поиск документации в XAgent 0.7.0.
+По [документации DeepSeek](https://api-docs.deepseek.com/en/), имя `deepseek-flash` сейчас соответствует DeepSeek-V4.1-Flash-1017.
+Старое имя `deepseek-v4-flash` оставлено для совместимости; для новой установки используйте `deepseek-flash`.
 
-| Модель            | Когда брать                                                                | Имя у вендора       |
-| ----------------- | -------------------------------------------------------------------------- | ------------------- |
-| DeepSeek V4 Pro   | Основной выбор                                                             | `deepseek-v4-pro`   |
-| DeepSeek V4 Flash | Быстрее и дешевле V4 Pro                                                   | `deepseek-v4-flash` |
-| GLM-5.3           | Альтернатива DeepSeek                                                      | `glm-5.3`           |
-| GLM-5.2           | Предыдущий выпуск GLM                                                      | `glm-5.2`           |
-| Qwen3.8 Max       | Альтернатива DeepSeek                                                      | `qwen3.8-max`       |
-| gpt-oss-120b      | С потерей качества; помещается на одну A100/H100 - годится для локального запуска | `gpt-oss-120b` |
+### Выбор модели
 
-Последняя колонка - имя модели у её собственного вендора. На сборных площадках к нему добавляется префикс: точную форму см. в колонке «Форма имени модели».
+| Модель | Когда выбирать | Имя у разработчика |
+| --- | --- | --- |
+| DeepSeek V4.1 Flash | Основной выбор для 0.7.0; проверен через API DeepSeek | `deepseek-flash` |
+| GLM-5.3 | Альтернатива DeepSeek | `glm-5.3` |
+| Qwen3.8 Max | Альтернатива DeepSeek | `qwen3.8-max` |
+| gpt-oss-120b | Для локального запуска; требования зависят от формата весов и длины контекста | Имя, заданное локальным сервером |
 
-### Допустимые площадки
+Перед использованием другой модели откройте **Models**, выполните **Probe**, включите модель и выберите её по умолчанию.
+Затем задайте в чате вопрос, который требует запроса к тестовой базе.
+Успешная проверка доступности модели сама по себе не подтверждает качество её работы с инструментами XAgent.
 
-| Площадка | Base URL                               | `OPENAI_API_TYPE` | Форма имени модели                                                              |
-| -------- | -------------------------------------- | ----------------- | -------------------------------------------------------------------------------- |
-| DeepSeek | `https://api.deepseek.com`             | `compatible`      | Только модели DeepSeek, имя как у вендора: `deepseek-v4-pro`                    |
-| Polza.AI | `https://api.polza.ai/v1`              | `openrouter`      | С префиксом вендора: `deepseek/deepseek-v4-pro`, `z-ai/glm-5.3`, `qwen/qwen3.8-max` |
-| BotHub   | `https://bothub.chat/api/v2/openai/v1` | `openrouter`      | Без префикса: `deepseek-v4-pro`, `glm-5.3`, `qwen3.8-max`                        |
-| vsellm   | `https://api.vsellm.ru/v1`             | `compatible`      | С префиксом вендора: `deepseek/deepseek-v4-pro`, `z-ai/glm-5.3`, `qwen/qwen3.8-max` |
+### Площадки и имена моделей
 
-> **`OPENAI_API_TYPE`**: `compatible` - стандартный OpenAI-совместимый API. `openrouter` - OpenRouter-совместимые прокси (Polza.AI, BotHub и др.); поддерживают суффикс `:provider` в имени модели для выбора upstream-провайдера (например `OPENAI_MODEL=deepseek-v4-pro:DeepSeek` → отправляется как `provider.only` в теле запроса). Если `OPENAI_BASE_URL` задан, а `OPENAI_API_TYPE` - нет, по умолчанию используется `compatible`.
+Адреса и примеры имён сверены по документации площадок 12 ноября 2026 года.
+Для одной модели площадки используют разные имена. Копируйте имя из каталога выбранной площадки.
+
+| Площадка | Base URL | `OPENAI_API_TYPE` | Пример имени DeepSeek V4.1 Flash |
+| --- | --- | --- | --- |
+| [DeepSeek](https://api-docs.deepseek.com/en/) | `https://api.deepseek.com` | `compatible` | `deepseek-flash` |
+| [BotHub](https://bothub.chat/deepseek-v4.1-flash-1017) | `https://bothub.chat/api/v2/openai/v1` | `openrouter` | `deepseek-v4.1-flash-1017` |
+| [VseLLM](https://vsellm.ru/provider/VSELLM) | `https://api.vsellm.ru/v1` | `compatible` | `deepseek/deepseek-v4.1-flash` |
+
+В каталоге VseLLM модель Qwen3.8 Max указана как `qwen/qwen3.8-2.4t-a95b`; не переносите имя `qwen/qwen3.8-max` с другой площадки.
+Наличие модели в каталоге не заменяет проверку её работы через выбранную площадку в XAgent.
+
+> **`OPENAI_API_TYPE`**: `compatible` — стандартный OpenAI-совместимый API. `openrouter` — OpenRouter и совместимые с ним прокси, включая BotHub. В этом режиме суффикс `:provider` в имени модели задаёт `provider.only` в запросе; например, `deepseek/deepseek-v4.1-flash:DeepSeek`. Используйте его, только если площадка поддерживает нужного поставщика. Если `OPENAI_BASE_URL` задан, а `OPENAI_API_TYPE` — нет, используется `compatible`.
 
 ### Другие провайдеры
 

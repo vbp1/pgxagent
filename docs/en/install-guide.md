@@ -22,38 +22,48 @@
 
 ## Preparing an LLM provider
 
-The agent needs an LLM. Prepare one of the options **before you start the installation**:
+Before installation, choose a model and a service, and obtain its API URL and key.
 
-### Recommended: DeepSeek V4 Pro
+### Recommended: DeepSeek V4.1 Flash
 
 - API: `https://api.deepseek.com`
-- Model: `OPENAI_MODEL=deepseek-v4-pro`
-- Provider type in the installer: **OpenAI-compatible** (`OPENAI_API_TYPE=compatible`)
+- Model: `OPENAI_MODEL=deepseek-flash`
+- Installer type: **OpenAI-compatible** (`OPENAI_API_TYPE=compatible`)
 
-### Models we tested
+This combination passed the database-query and documentation-search checks in XAgent 0.7.0.
+According to the [DeepSeek documentation](https://api-docs.deepseek.com/en/), `deepseek-flash` currently serves DeepSeek-V4.1-Flash-1017.
+The old `deepseek-v4-flash` name remains as a compatibility alias. Use `deepseek-flash` for a new installation.
 
-| Model             | When to pick it                                                              | Vendor name         |
-| ----------------- | ----------------------------------------------------------------------------- | ------------------- |
-| DeepSeek V4 Pro   | The default choice                                                            | `deepseek-v4-pro`   |
-| DeepSeek V4 Flash | Faster and cheaper than V4 Pro                                                | `deepseek-v4-flash` |
-| GLM-5.3           | An alternative to DeepSeek                                                    | `glm-5.3`           |
-| GLM-5.2           | The previous GLM release                                                      | `glm-5.2`           |
-| Qwen3.8 Max       | An alternative to DeepSeek                                                    | `qwen3.8-max`       |
-| gpt-oss-120b      | With a loss of quality; fits on a single A100/H100, so it also runs locally   | `gpt-oss-120b`      |
+### Choosing a model
 
-The last column is the name the model's own vendor uses. Aggregators put a prefix in front of it - the exact shape is in the "Model name shape" column.
+| Model | When to choose it | Developer's model ID |
+| --- | --- | --- |
+| DeepSeek V4.1 Flash | The default choice for 0.7.0; checked through the DeepSeek API | `deepseek-flash` |
+| GLM-5.3 | An alternative to DeepSeek | `glm-5.3` |
+| Qwen3.8 Max | An alternative to DeepSeek | `qwen3.8-max` |
+| gpt-oss-120b | Local deployment; requirements depend on the weight format and context length | The ID configured on the local server |
 
-### Supported platforms
+Before using another model, open **Models**, run **Probe**, enable the model and make it the default.
+Then ask a chat question that requires a query against a test database.
+A successful availability probe alone does not establish how well the model uses XAgent's tools.
 
-| Platform    | Base URL                           | `OPENAI_API_TYPE` | Model name shape                                                                          |
-| ----------- | ---------------------------------- | ----------------- | ------------------------------------------------------------------------------------------- |
-| DeepSeek    | `https://api.deepseek.com`         | `compatible`      | DeepSeek models only, the vendor name as is: `deepseek-v4-pro`                             |
-| OpenRouter  | `https://openrouter.ai/api/v1`     | `openrouter`      | Vendor prefix: `deepseek/deepseek-v4-pro`, `z-ai/glm-5.3`, `qwen/qwen3.8-max`               |
-| HuggingFace | `https://router.huggingface.co/v1` | `compatible`      | Repository id: `deepseek-ai/DeepSeek-V4-Pro`, `zai-org/GLM-5.3`, `Qwen/Qwen3.8-2.4T-A95B`  |
+### Services and model IDs
 
-> **`OPENAI_API_TYPE`**: `compatible` is the standard OpenAI-compatible API. `openrouter` covers OpenRouter and OpenRouter-compatible proxies; they support the `:provider` suffix in the model name to pick the upstream provider (for example `OPENAI_MODEL=deepseek-v4-pro:DeepSeek` is sent as `provider.only` in the request body). If `OPENAI_BASE_URL` is set and `OPENAI_API_TYPE` is not, `compatible` is used.
+URLs and example IDs were checked against the services' documentation on November 12, 2026.
+Services use different IDs for the same model. Copy the ID from the selected service's catalog.
 
-> **HuggingFace routing**: on the HuggingFace router the `:provider` suffix is part of the model name itself, not OpenRouter routing - write `zai-org/GLM-5.3:novita` and keep `OPENAI_API_TYPE=compatible`.
+| Service | Base URL | `OPENAI_API_TYPE` | DeepSeek V4.1 Flash example ID |
+| --- | --- | --- | --- |
+| [DeepSeek](https://api-docs.deepseek.com/en/) | `https://api.deepseek.com` | `compatible` | `deepseek-flash` |
+| [OpenRouter](https://openrouter.ai/deepseek/deepseek-v4.1-flash) | `https://openrouter.ai/api/v1` | `openrouter` | `deepseek/deepseek-v4.1-flash` |
+| [Hugging Face](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) | `https://router.huggingface.co/v1` | `compatible` | `deepseek-ai/DeepSeek-V4.1-Flash` |
+
+Check the selected inference provider's availability on Hugging Face before using its router.
+A catalog entry does not replace checking the model through that service in XAgent.
+
+> **`OPENAI_API_TYPE`**: `compatible` is the standard OpenAI-compatible API. `openrouter` covers OpenRouter and compatible proxies. In this mode, a `:provider` suffix sets `provider.only` in the request; for example, `deepseek/deepseek-v4.1-flash:DeepSeek`. Use it only when the service supports that upstream provider. If `OPENAI_BASE_URL` is set and `OPENAI_API_TYPE` is not, `compatible` is used.
+
+> **Hugging Face routing**: on its router, the `:provider` suffix belongs to the model ID. Keep `OPENAI_API_TYPE=compatible` and copy the full ID from the selected inference provider's example.
 
 ### Other providers
 
